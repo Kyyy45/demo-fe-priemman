@@ -2,9 +2,11 @@
 
 import { useRef, useState } from "react";
 import { Check, CircleDollarSign, X } from "lucide-react";
+import { UsersThree } from "@phosphor-icons/react";
 import { enUS, id } from "date-fns/locale";
 
 import type { CalendarWorkspace } from "@/shared/lib/types/calendar";
+import type { CurrentUser } from "@/shared/lib/types/user";
 import type {
   AdminUserEntry,
   AdminUsersResult,
@@ -13,8 +15,8 @@ import type {
 import { MAX_REJECTION_REASON_LENGTH } from "@/shared/api/admin";
 import { upgradeStatusClass } from "@/shared/lib/upgrade-status";
 import { cn } from "@/shared/lib/utils";
-import { DashboardBanner } from "@/shared/layout/dashboard/dashboard-banner";
-import { ReverseCutoutCard } from "@/shared/layout/dashboard/reverse-cutout-card";
+import { DashboardFolderCard } from "@/shared/layout/dashboard/folder-card";
+import { CutoutCorner } from "@/shared/ui/cutout-card";
 import { useLanguage } from "@/shared/providers/language-provider";
 import { Avatar, AvatarFallback } from "@/shared/ui/avatar";
 import { Button } from "@/shared/ui/button";
@@ -50,15 +52,28 @@ export const USER_ROLE_FILTERS = ["all", "user", "creator", "admin"] as const;
 export type UserRoleFilter = (typeof USER_ROLE_FILTERS)[number];
 export type RoleCounts = Record<Exclude<UserRoleFilter, "all">, number>;
 
+// Tampilan kartu bawah, ditukar lewat tab di notch.
+type PanelView = "upgrades" | "users";
+
 // Daftar upgrade dibatasi 100 baris oleh backend (tanpa pagination).
 const UPGRADE_LIST_LIMIT = 100;
 const TABLE_BUTTON_CLASS = "!h-10 !min-h-10 rounded-[var(--radius-control)] px-4";
 const DIALOG_BUTTON_CLASS =
   "min-h-12 rounded-[var(--radius-control)] px-4 type-label";
-const SECTION_CLASS =
-  "flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-surface-container-low";
+const COUNT_BADGE_CLASS =
+  "grid h-5 min-w-5 place-items-center rounded-full bg-current/15 px-1.5 text-[0.6875rem] font-semibold tabular-nums";
 const STATUS_PILL_CLASS =
   "dashboard-status-label inline-flex rounded-full px-3 py-1";
+
+// "1 request" / "3 requests" — bentuk tunggal untuk tepat satu.
+function pluralize(
+  copy: { count: string; countOne: string },
+  value: number | string,
+) {
+  return value === 1
+    ? copy.countOne
+    : copy.count.replace("{count}", String(value));
+}
 
 function formatDate(value: string, locale: string) {
   if (!value) return "—";
@@ -100,34 +115,10 @@ function roleClass(role: string) {
   return "bg-surface-container-high text-copy-secondary";
 }
 
-// Header section tabel, sama dengan riwayat upgrade di dashboard creator:
-// eyebrow dashboard-table-label + dashboard-card-title, tab di sisi kanan.
-function SectionHeader({
-  children,
-  description,
-  eyebrow,
-  title,
-}: {
-  children: React.ReactNode;
-  description: string;
-  eyebrow: string;
-  title: string;
-}) {
-  return (
-    <div className="flex flex-col gap-[var(--grid-gap)] border-b border-border-subtle p-[var(--card-padding)] m3-large:flex-row m3-large:items-end m3-large:justify-between">
-      <div className="min-w-0">
-        <p className="dashboard-table-label">{eyebrow}</p>
-        <h2 className="dashboard-card-title mt-1">{title}</h2>
-        <p className="dashboard-body mt-1">{description}</p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export function Overview({
   busyId,
   calendar,
+  currentUser,
   onApprove,
   onConfirmPayment,
   onReject,
@@ -141,6 +132,7 @@ export function Overview({
 }: {
   busyId: string | null;
   calendar: CalendarWorkspace | null;
+  currentUser: CurrentUser;
   onApprove: (request: UpgradeRequestEntry) => void;
   onConfirmPayment: (request: UpgradeRequestEntry) => Promise<boolean>;
   onReject: (request: UpgradeRequestEntry, reason: string) => Promise<boolean>;
@@ -160,8 +152,8 @@ export function Overview({
   const copy = t.dashboardAdmin;
   const localeCode = lang === "id" ? "id-ID" : "en-US";
 
-  const queueRef = useRef<HTMLElement>(null);
-  const usersRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const [view, setView] = useState<PanelView>("upgrades");
   const [queueStatus, setQueueStatus] = useState<QueueStatus>("pending");
   const [queueLimit, setQueueLimit] = useState(5);
   const [queueOffset, setQueueOffset] = useState(0);
@@ -178,11 +170,71 @@ export function Overview({
     : (users?.total ?? 0);
   const tableLabels = copy.table;
 
+  // Metrik di folder membuka tampilan yang sesuai di kartu bawah.
+  const revealPanel = () =>
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   const showQueue = (status: QueueStatus) => {
+    setView("upgrades");
     setQueueStatus(status);
     setQueueOffset(0);
-    queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    revealPanel();
   };
+  const showUsers = () => {
+    setView("users");
+    revealPanel();
+  };
+
+  // Filter di baris "Show" tabel — pil kecil dengan badge jumlah, sama
+  // gayanya dengan tab di notch.
+  const queueFilters = (
+    <Tabs
+      onValueChange={(value) => {
+        setQueueStatus(value as QueueStatus);
+        setQueueOffset(0);
+      }}
+      value={queueStatus}
+    >
+      <TabsList className="h-10! max-w-full overflow-x-auto overflow-y-hidden rounded-full p-1">
+        {QUEUE_STATUSES.map((status) => (
+          <TabsTrigger
+            className="gap-2 rounded-full px-3"
+            key={status}
+            value={status}
+          >
+            {copy.statuses[status]}
+            <span className={COUNT_BADGE_CLASS}>
+              {countLabel(requests[status])}
+            </span>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+  const userFilters = (
+    <Tabs
+      onValueChange={(value) =>
+        onUserQueryChange({
+          ...userQuery,
+          role: value as UserRoleFilter,
+          offset: 0,
+        })
+      }
+      value={userQuery.role}
+    >
+      <TabsList className="h-10! max-w-full overflow-x-auto overflow-y-hidden rounded-full p-1">
+        {USER_ROLE_FILTERS.map((role) => (
+          <TabsTrigger className="gap-2 rounded-full px-3" key={role} value={role}>
+            {copy.users.tabs[role]}
+            {roleCounts ? (
+              <span className={COUNT_BADGE_CLASS}>
+                {role === "all" ? totalUsers : roleCounts[role]}
+              </span>
+            ) : null}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
 
   const calendarEvents = (calendar?.events ?? []).map((event, index) => ({
     title: event.title || t.calendar.untitled,
@@ -203,69 +255,138 @@ export function Overview({
   return (
     // Wrapper sama dengan halaman dashboard lain (Creator Studio, Library).
     <div className="flex w-full min-w-0 flex-col gap-[var(--grid-gap)] overflow-x-clip">
-      <DashboardBanner subtitle={copy.subtitle} title={copy.title} />
+      {/* Bento overview — susunan yang sama dengan dashboard user/creator:
+          folder + kartu status di baris atas, kalender tetap di kolom kanan
+          (2 baris), kartu tabel di baris bawah. Setinggi sidebar dan tanpa
+          scroll halaman (-mb menetralkan padding bawah <main>). */}
+      <section className="grid min-h-[calc(100svh-7.75rem)] w-full grid-cols-1 items-stretch gap-[var(--grid-gap)] m3-large:-mb-[var(--dashboard-content-padding)] m3-large:h-[max(calc(100svh_-_var(--dashboard-header-height)_-_var(--dashboard-frame)_*_3),40rem)] m3-large:min-h-0 m3-large:grid-cols-[minmax(0,1fr)_16.5rem_16.5rem] m3-large:grid-rows-[20rem_minmax(0,1fr)]">
+        <DashboardFolderCard
+          metrics={[
+            {
+              description: roleCounts
+                ? copy.metrics.usersBreakdown
+                    .replace("{creator}", String(roleCounts.creator))
+                    .replace("{admin}", String(roleCounts.admin))
+                : copy.metrics.usersHint,
+              metric: totalUsers,
+              onClick: showUsers,
+              surfaceClassName:
+                "[--metric-surface:var(--dashboard-metric-connected)]",
+              title: copy.metrics.users,
+            },
+            {
+              description: copy.metrics.pendingHint,
+              metric: countLabel(requests.pending),
+              onClick: () => showQueue("pending"),
+              surfaceClassName:
+                "[--metric-surface:var(--dashboard-metric-liked)]",
+              title: copy.metrics.pending,
+            },
+            {
+              description: copy.metrics.approvedHint,
+              metric: countLabel(requests.approved),
+              onClick: () => showQueue("approved"),
+              surfaceClassName:
+                "[--metric-surface:var(--dashboard-metric-saved)]",
+              title: copy.metrics.approved,
+            },
+          ]}
+          subtitle={copy.subtitle}
+          title={copy.welcome.replace(
+            "{name}",
+            currentUser.firstName || currentUser.email,
+          )}
+        />
 
-      {/* Metrik — kartu yang sama dengan metrik dashboard user/creator */}
-      <section className="grid grid-cols-3 gap-1 min-[23.5rem]:gap-2 m3-medium:gap-[var(--grid-gap)]">
-        <ReverseCutoutCard
-          description={
-            roleCounts
-              ? copy.metrics.usersBreakdown
-                  .replace("{creator}", String(roleCounts.creator))
-                  .replace("{admin}", String(roleCounts.admin))
-              : copy.metrics.usersHint
-          }
-          metric={totalUsers}
-          onClick={() =>
-            usersRef.current?.scrollIntoView({
-              behavior: "smooth",
-              block: "start",
-            })
-          }
-          surfaceClassName="[--metric-surface:var(--dashboard-metric-connected)]"
-          title={copy.metrics.users}
-        />
-        <ReverseCutoutCard
-          description={copy.metrics.pendingHint}
-          metric={countLabel(requests.pending)}
-          onClick={() => showQueue("pending")}
-          surfaceClassName="[--metric-surface:var(--dashboard-metric-liked)]"
-          title={copy.metrics.pending}
-        />
-        <ReverseCutoutCard
-          description={copy.metrics.approvedHint}
-          metric={countLabel(requests.approved)}
-          onClick={() => showQueue("approved")}
-          surfaceClassName="[--metric-surface:var(--dashboard-metric-saved)]"
-          title={copy.metrics.approved}
-        />
-      </section>
+        {/* Kartu status — pola "Project status" di dashboard creator */}
+        <section className="relative min-h-80 overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-surface-container-low p-[var(--card-padding)]">
+          <span
+            aria-hidden="true"
+            className="absolute -right-7 -top-7 size-28 rounded-full border-[1rem] border-brand/10"
+          />
+          <div className="relative flex h-full flex-col">
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex size-11 items-center justify-center rounded-[var(--radius-control)] bg-brand/10 text-brand">
+                <UsersThree className="size-5" weight="duotone" />
+              </span>
+              <span className="dashboard-status-label rounded-full bg-surface-container px-3 py-1 text-copy-secondary">
+                {copy.roles.accounts.replace("{count}", String(totalUsers))}
+              </span>
+            </div>
+            <h2 className="dashboard-card-title mt-5">{copy.roles.title}</h2>
+            <p className="dashboard-body mt-2">{copy.roles.description}</p>
+            <div className="mt-auto grid grid-cols-2 gap-2">
+              <div className="rounded-[var(--radius-control)] bg-surface-container p-3">
+                <p className="dashboard-metric-value">
+                  {roleCounts?.user ?? "—"}
+                </p>
+                <p className="dashboard-status-label text-copy-secondary">
+                  {copy.users.tabs.user}
+                </p>
+              </div>
+              <div className="rounded-[var(--radius-control)] bg-surface-container p-3">
+                <p className="dashboard-metric-value">
+                  {roleCounts?.creator ?? "—"}
+                </p>
+                <p className="dashboard-status-label text-copy-secondary">
+                  {copy.users.tabs.creator}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <div className="grid min-w-0 items-stretch gap-[var(--grid-gap)] m3-large:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-        {/* Antrean upgrade creator */}
-        <section className={cn(SECTION_CLASS, "scroll-mt-4")} ref={queueRef}>
-          <SectionHeader
-            description={copy.queue.description}
-            eyebrow={copy.queue.eyebrow}
-            title={copy.queue.title}
+        {/* Kartu cutout baris bawah (pola referensi Unpaid Invoices):
+            notch berisi tukar tampilan Upgrade queue / Users, filter status
+            atau role ada di baris "Show" tabel. Satu kartu supaya halaman
+            tetap setinggi sidebar tanpa scroll, sama seperti dashboard creator. */}
+        <section
+          className="relative flex min-w-0 scroll-mt-4 flex-col rounded-[var(--radius-card)] bg-surface-container-low text-copy m3-large:col-span-2 m3-large:min-h-0"
+          ref={panelRef}
+        >
+          <div className="flex min-h-14 items-center justify-between gap-3 px-[var(--card-padding)] pt-2 m3-expanded:min-h-16">
+            <h2 className="dashboard-card-title truncate m3-expanded:max-w-[calc(50%-11rem)]">
+              {view === "upgrades" ? copy.queue.title : copy.users.title}
+            </h2>
+            <span className="dashboard-status-label shrink-0 rounded-full bg-surface-container px-3 py-1 text-copy-secondary">
+              {view === "upgrades"
+                ? pluralize(copy.queue, countLabel(requests[queueStatus]))
+                : pluralize(copy.users, users?.total ?? totalUsers)}
+            </span>
+          </div>
+
+          <Tabs
+            // Lengkung konsentris: kotak tab berbentuk pil (radius 24px dari
+            // tinggi 48px) + jarak 8px, jadi radius bawah notch = 24 + 8 = 32px.
+            className="px-[var(--card-padding)] pb-2 m3-expanded:absolute m3-expanded:left-1/2 m3-expanded:top-0 m3-expanded:z-10 m3-expanded:-translate-x-1/2 m3-expanded:rounded-b-[32px] m3-expanded:bg-canvas m3-expanded:px-2 m3-expanded:pb-2"
+            onValueChange={(value) => setView(value as PanelView)}
+            value={view}
           >
-            <Tabs
-              onValueChange={(value) => {
-                setQueueStatus(value as QueueStatus);
-                setQueueOffset(0);
-              }}
-              value={queueStatus}
-            >
-              <TabsList className="h-12! max-w-full overflow-x-auto overflow-y-hidden">
-                {QUEUE_STATUSES.map((status) => (
-                  <TabsTrigger key={status} value={status}>
-                    {copy.statuses[status]} ({countLabel(requests[status])})
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </SectionHeader>
+            <CutoutCorner
+              className="absolute -left-[31px] top-0 hidden -rotate-90 text-canvas m3-expanded:block"
+              size={32}
+            />
+            <CutoutCorner
+              className="absolute -right-[31px] top-0 hidden rotate-180 text-canvas m3-expanded:block"
+              size={32}
+            />
+            <TabsList className="h-12! max-w-full overflow-x-auto overflow-y-hidden rounded-full p-1">
+              <TabsTrigger className="gap-2 rounded-full px-4" value="upgrades">
+                {copy.views.upgrades}
+                <span className={COUNT_BADGE_CLASS}>
+                  {countLabel(requests.pending)}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger className="gap-2 rounded-full px-4" value="users">
+                {copy.views.users}
+                <span className={COUNT_BADGE_CLASS}>{totalUsers}</span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {view === "upgrades" ? (
           <Table01
+            toolbar={queueFilters}
             count={queueRows.length}
             hasNextPage={
               queueOffset + queueLimit < requests[queueStatus].length
@@ -427,138 +548,113 @@ export function Overview({
               </TableBody>
             </Table>
           </Table01>
+          ) : (
+          <Table01
+            toolbar={userFilters}
+            count={users?.users.length ?? 0}
+            hasNextPage={
+              users
+                ? userQuery.offset + users.users.length < users.total
+                : false
+            }
+            labels={tableLabels}
+            loading={usersLoading}
+            offset={userQuery.offset}
+            onNext={() =>
+              onUserQueryChange({
+                ...userQuery,
+                offset: userQuery.offset + userQuery.limit,
+              })
+            }
+            onPageSizeChange={(value) =>
+              onUserQueryChange({ ...userQuery, limit: value, offset: 0 })
+            }
+            onPrevious={() =>
+              onUserQueryChange({
+                ...userQuery,
+                offset: Math.max(0, userQuery.offset - userQuery.limit),
+              })
+            }
+            pageSize={userQuery.limit}
+          >
+            <Table className="min-w-[40rem]">
+              <TableHeader className="bg-surface-container-high/70">
+                <TableRow className="hover:bg-transparent">
+                  {[
+                    copy.users.columns.account,
+                    copy.users.columns.role,
+                    copy.users.columns.joined,
+                  ].map((label) => (
+                    <TableHead
+                      className="dashboard-table-label h-12 px-4 first:pl-5 last:pr-5"
+                      key={label}
+                    >
+                      {label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody className={usersLoading ? "opacity-55" : undefined}>
+                {users?.users.length ? (
+                  users.users.map((user) => (
+                    <TableRow className="hover:bg-surface-container" key={user.id}>
+                      <TableCell className="px-4 py-3 pl-5">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar className="size-10">
+                            <AvatarFallback className="bg-surface-container-high type-label font-semibold text-copy-secondary">
+                              {userInitials(user)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="dashboard-body truncate font-medium !text-copy">
+                              {userName(user) || user.email}
+                            </p>
+                            <a
+                              className="dashboard-status-label block truncate text-copy-secondary hover:text-copy hover:underline"
+                              href={`mailto:${user.email}`}
+                            >
+                              {user.email}
+                            </a>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
+                        <span className={cn(STATUS_PILL_CLASS, roleClass(user.role))}>
+                          {copy.users.roles[user.role] ?? user.role}
+                        </span>
+                      </TableCell>
+                      <TableCell className="dashboard-body px-4 py-3 pr-5 !text-copy">
+                        {formatDate(user.createdAt, localeCode)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      className="dashboard-body h-44 px-5 text-center"
+                      colSpan={3}
+                    >
+                      {copy.users.empty}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Table01>
+          )}
         </section>
 
+        {/* Kelas kalender sama persis dengan dashboard creator: kolom kanan,
+            membentang 2 baris (grid menempatkannya lebih dulu karena posisi
+            kolom & barisnya eksplisit, jadi urutan DOM tidak berpengaruh). */}
         <Calendar08
           addEventLabel={t.calendar.refresh}
-          className="min-h-[40rem]"
+          className="min-h-[calc(48rem+var(--grid-gap))] m3-large:col-start-3 m3-large:row-span-2 m3-large:row-start-1 m3-large:min-h-0"
           emptyLabel={t.calendar.noEvents}
           events={calendarEvents}
           locale={lang === "id" ? id : enUS}
           localeCode={localeCode}
         />
-      </div>
-
-      {/* Direktori pengguna */}
-      <section className={cn(SECTION_CLASS, "scroll-mt-4")} ref={usersRef}>
-        <SectionHeader
-          description={copy.users.description}
-          eyebrow={copy.users.eyebrow}
-          title={copy.users.title}
-        >
-          <Tabs
-            onValueChange={(value) =>
-              onUserQueryChange({
-                ...userQuery,
-                role: value as UserRoleFilter,
-                offset: 0,
-              })
-            }
-            value={userQuery.role}
-          >
-            <TabsList className="h-12! max-w-full overflow-x-auto overflow-y-hidden">
-              {USER_ROLE_FILTERS.map((role) => (
-                <TabsTrigger key={role} value={role}>
-                  {copy.users.tabs[role]}
-                  {roleCounts
-                    ? ` (${role === "all" ? totalUsers : roleCounts[role]})`
-                    : ""}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </SectionHeader>
-        <Table01
-          count={users?.users.length ?? 0}
-          hasNextPage={
-            users
-              ? userQuery.offset + users.users.length < users.total
-              : false
-          }
-          labels={tableLabels}
-          loading={usersLoading}
-          offset={userQuery.offset}
-          onNext={() =>
-            onUserQueryChange({
-              ...userQuery,
-              offset: userQuery.offset + userQuery.limit,
-            })
-          }
-          onPageSizeChange={(value) =>
-            onUserQueryChange({ ...userQuery, limit: value, offset: 0 })
-          }
-          onPrevious={() =>
-            onUserQueryChange({
-              ...userQuery,
-              offset: Math.max(0, userQuery.offset - userQuery.limit),
-            })
-          }
-          pageSize={userQuery.limit}
-        >
-          <Table className="min-w-[40rem]">
-            <TableHeader className="bg-surface-container-high/70">
-              <TableRow className="hover:bg-transparent">
-                {[
-                  copy.users.columns.account,
-                  copy.users.columns.role,
-                  copy.users.columns.joined,
-                ].map((label) => (
-                  <TableHead
-                    className="dashboard-table-label h-12 px-4 first:pl-5 last:pr-5"
-                    key={label}
-                  >
-                    {label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody className={usersLoading ? "opacity-55" : undefined}>
-              {users?.users.length ? (
-                users.users.map((user) => (
-                  <TableRow className="hover:bg-surface-container" key={user.id}>
-                    <TableCell className="px-4 py-3 pl-5">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar className="size-10">
-                          <AvatarFallback className="bg-surface-container-high type-label font-semibold text-copy-secondary">
-                            {userInitials(user)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="dashboard-body truncate font-medium !text-copy">
-                            {userName(user) || user.email}
-                          </p>
-                          <a
-                            className="dashboard-status-label block truncate text-copy-secondary hover:text-copy hover:underline"
-                            href={`mailto:${user.email}`}
-                          >
-                            {user.email}
-                          </a>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="px-4 py-3">
-                      <span className={cn(STATUS_PILL_CLASS, roleClass(user.role))}>
-                        {copy.users.roles[user.role] ?? user.role}
-                      </span>
-                    </TableCell>
-                    <TableCell className="dashboard-body px-4 py-3 pr-5 !text-copy">
-                      {formatDate(user.createdAt, localeCode)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    className="dashboard-body h-44 px-5 text-center"
-                    colSpan={3}
-                  >
-                    {copy.users.empty}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Table01>
       </section>
 
       {/* Tolak — alasan wajib supaya pemohon tahu apa yang harus diperbaiki */}

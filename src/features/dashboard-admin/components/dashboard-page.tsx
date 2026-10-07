@@ -434,6 +434,7 @@ export function AdminDashboardPage() {
         <Overview
           busyId={busyId}
           calendar={calendar}
+          currentUser={currentUser}
           onApprove={(request) => void handleApprove(request)}
           onConfirmPayment={handleConfirmPayment}
           onReject={handleReject}

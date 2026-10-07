@@ -189,7 +189,14 @@ export const translations = {
       loading: "Loading admin dashboard",
       title: "Admin dashboard",
       subtitle: "Review creator upgrades and manage Priemman accounts.",
+      welcome: "Welcome back, {name}",
+      views: { upgrades: "Upgrade queue", users: "Users" },
       retry: "Try again",
+      roles: {
+        title: "Accounts by role",
+        description: "Registered accounts by access level.",
+        accounts: "{count} accounts",
+      },
       metrics: {
         users: "Total users",
         usersHint: "Registered Priemman accounts.",
@@ -202,6 +209,8 @@ export const translations = {
       queue: {
         eyebrow: "Creator upgrades",
         title: "Upgrade queue",
+        count: "{count} requests",
+        countOne: "1 request",
         description:
           "Approve or reject requests, then confirm payment to grant creator access.",
         columns: {
@@ -265,6 +274,7 @@ export const translations = {
         tabs: { all: "All", user: "Users", creator: "Creators", admin: "Admins" },
         columns: { account: "Account", role: "Role", joined: "Joined" },
         count: "{count} accounts",
+        countOne: "1 account",
         empty: "No accounts in this section.",
         roles: {
           user: "User",
@@ -1146,7 +1156,14 @@ export const translations = {
       loading: "Memuat dasbor admin",
       title: "Dasbor admin",
       subtitle: "Tinjau upgrade kreator dan kelola akun Priemman.",
+      welcome: "Selamat datang kembali, {name}",
+      views: { upgrades: "Antrean upgrade", users: "Pengguna" },
       retry: "Coba lagi",
+      roles: {
+        title: "Akun per role",
+        description: "Akun terdaftar berdasarkan tingkat akses.",
+        accounts: "{count} akun",
+      },
       metrics: {
         users: "Total pengguna",
         usersHint: "Akun Priemman yang terdaftar.",
@@ -1159,6 +1176,8 @@ export const translations = {
       queue: {
         eyebrow: "Upgrade kreator",
         title: "Antrean upgrade",
+        count: "{count} permintaan",
+        countOne: "1 permintaan",
         description:
           "Setujui atau tolak permintaan, lalu konfirmasi pembayaran untuk memberi akses kreator.",
         columns: {
@@ -1226,6 +1245,7 @@ export const translations = {
         },
         columns: { account: "Akun", role: "Role", joined: "Bergabung" },
         count: "{count} akun",
+        countOne: "1 akun",
         empty: "Tidak ada akun di bagian ini.",
         roles: {
           user: "Pengguna",

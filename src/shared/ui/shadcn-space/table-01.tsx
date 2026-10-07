@@ -27,6 +27,8 @@ type Table01Props = {
   onNext: () => void;
   onPageSizeChange: (value: number) => void;
   onPrevious: () => void;
+  /** Kontrol tambahan (mis. tab filter) di sisi kanan baris "Show". */
+  toolbar?: ReactNode;
 };
 
 // Adapted from @shadcn-space/table-01: its visual shell is retained while
@@ -42,6 +44,7 @@ export function Table01({
   onNext,
   onPageSizeChange,
   onPrevious,
+  toolbar,
 }: Table01Props) {
   const first = count > 0 ? offset + 1 : 0;
   const last = offset + count;
@@ -71,6 +74,7 @@ export function Table01({
             </SelectContent>
           </Select>
         </div>
+        {toolbar}
       </div>
 
       {/* min-h-0 + overflow-auto: di kartu bertinggi tetap (overview
