@@ -29,21 +29,29 @@ import { useT } from "@/shared/providers/language-provider";
 import { mediaService, userService } from "@/shared/api";
 import type { UploadedMedia } from "@/shared/lib/types/media";
 import type {
-  ConnectedPlatform,
   CurrentUser,
   UpdateBasicInfoInput,
   UpsertWorkExperienceInput,
   WorkExperience,
 } from "@/shared/lib/types/user";
 import { getAvatarFallbackUrl } from "@/shared/lib/avatar";
+import { SOCIAL_ACCOUNTS_AVAILABLE } from "@/shared/lib/features";
 import {
-  connectedAccountSchema,
   profileUpdateSchema,
   workExperienceSchema,
 } from "@/shared/lib/schemas/account";
 
 // 1. Batas ukuran avatar untuk mencegah upload yang tidak sesuai kebijakan UI.
 const MAX_AVATAR_SIZE = 10 * 1024 * 1024;
+
+// Website boleh diketik tanpa skema ("rizky.dev"); disimpan sebagai https.
+function normalizeWebsiteUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  return /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+}
 
 type ExperienceForm = {
   localId: string;
@@ -380,7 +388,7 @@ function AccountSettingsForm({
       lastName: profile.lastName,
       headline: profile.headline,
       company: profile.company,
-      websiteUrl: profile.websiteUrl,
+      websiteUrl: normalizeWebsiteUrl(profile.websiteUrl),
       location: { country: profile.country, city: profile.city },
       aboutMe: {
         title: profile.aboutTitle,
@@ -388,8 +396,11 @@ function AccountSettingsForm({
       },
     });
     if (!profileValidation.success) {
+      const issue = profileValidation.error.issues[0];
       toast.error(
-        profileValidation.error.issues[0]?.message ?? s.alerts.applyFailed,
+        issue?.path[0] === "websiteUrl"
+          ? s.alerts.invalidWebsite
+          : (issue?.message ?? s.alerts.applyFailed),
       );
       return;
     }
@@ -423,38 +434,9 @@ function AccountSettingsForm({
       return;
     }
 
-    // 25. Membandingkan social account form dengan respons server untuk memilih upsert/delete.
-    const socialAccounts = (
-      [
-        ["instagram", profile.instagram],
-        ["linkedin", profile.linkedin],
-        ["github", profile.github],
-      ] as const
-    ).map(([platform, handleOrUrl]) => ({
-      platform,
-      handleOrUrl: handleOrUrl.trim(),
-      existed:
-        user?.connectedAccounts.some(
-          (account) => account.platform === platform,
-        ) ?? false,
-    }));
-
-    // 25.1. Akun sosial kosong berarti akan dihapus; yang berisi wajib sesuai schema.
-    const invalidAccount = socialAccounts
-      .filter((account) => account.handleOrUrl)
-      .map((account) =>
-        connectedAccountSchema.safeParse({
-          platform: account.platform,
-          handleOrUrl: account.handleOrUrl,
-        }),
-      )
-      .find((result) => !result.success);
-    if (invalidAccount && !invalidAccount.success) {
-      toast.error(
-        invalidAccount.error.issues[0]?.message ?? s.alerts.applyFailed,
-      );
-      return;
-    }
+    // 25. Akun sosial belum didukung backend (tidak ada route
+    //     /v1/users/me/connected-accounts dan field-nya tidak ada di User proto),
+    //     jadi tidak ikut dikirim. Lihat SOCIAL_ACCOUNTS_AVAILABLE.
     setSaving(true);
     const toastId = toast.info(s.alerts.saving);
 
@@ -484,19 +466,6 @@ function AccountSettingsForm({
         ...workExperiencePayload.map((experience) =>
           userService.upsertWorkExperience(experience),
         ),
-        ...socialAccounts.map(({ platform, handleOrUrl, existed }) => {
-          if (handleOrUrl)
-            return userService.upsertConnectedAccount({
-              platform,
-              handleOrUrl,
-            });
-          if (existed)
-            return userService.deleteConnectedAccount(
-              platform as ConnectedPlatform,
-            );
-
-          return Promise.resolve();
-        }),
       ]);
 
       // 28. Refetch profil menyatukan respons endpoint terpisah menjadi satu state kanonis.
@@ -941,10 +910,19 @@ function AccountSettingsForm({
         className={sectionClassName}
       >
         <div className="border-b border-border-subtle/60 bg-surface-container px-[var(--card-padding)] py-[var(--card-padding)]">
-          <h3 className="type-card-title" id="external-integrations-title">
-            {s.onTheWeb.title}
-          </h3>
-          <p className="mt-2 type-body">{s.onTheWeb.desc}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="type-card-title" id="external-integrations-title">
+              {s.onTheWeb.title}
+            </h3>
+            {!SOCIAL_ACCOUNTS_AVAILABLE ? (
+              <span className="dashboard-status-label rounded-full bg-surface-container-high px-3 py-1 text-copy-secondary">
+                {s.onTheWeb.comingSoon}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 type-body">
+            {SOCIAL_ACCOUNTS_AVAILABLE ? s.onTheWeb.desc : s.onTheWeb.unavailable}
+          </p>
         </div>
 
         <div className="grid gap-[var(--grid-gap)] p-[var(--card-padding)]">
@@ -983,7 +961,7 @@ function AccountSettingsForm({
                   <Label>{label}</Label>
                   <Input
                     className="min-h-12 min-w-0 px-4 type-body"
-                    disabled={saving}
+                    disabled={saving || !SOCIAL_ACCOUNTS_AVAILABLE}
                     inputMode="url"
                     onChange={(event) =>
                       updateProfile(platform, event.target.value)

@@ -700,6 +700,9 @@ export const translations = {
           ig: "Instagram Profile URL",
           linkedin: "LinkedIn Profile URL",
           github: "GitHub Profile URL",
+          comingSoon: "Coming soon",
+          unavailable:
+            "Social profile links aren't supported by the server yet. This section will be enabled once they are.",
         },
         aboutMe: {
           title: "Biography",
@@ -717,6 +720,8 @@ export const translations = {
           uploadIncomplete:
             "The uploaded profile media response is incomplete.",
           applyFailed: "Could not apply changes. Please try again.",
+          invalidWebsite:
+            "Enter a valid website address, for example yourname.com.",
         },
         btnCancel: "Discard",
         btnSave: "Apply Changes",
@@ -1655,6 +1660,9 @@ export const translations = {
           ig: "URL Profil Instagram",
           linkedin: "URL Profil LinkedIn",
           github: "URL Profil GitHub",
+          comingSoon: "Segera hadir",
+          unavailable:
+            "Tautan profil sosial belum didukung server. Bagian ini akan diaktifkan setelah tersedia.",
         },
         aboutMe: {
           title: "Biografi",
@@ -1671,6 +1679,8 @@ export const translations = {
           profileImageTooLarge: "Ukuran gambar profil maksimal 10 MB.",
           uploadIncomplete: "Respons unggahan media profil belum lengkap.",
           applyFailed: "Perubahan belum dapat diterapkan. Silakan coba lagi.",
+          invalidWebsite:
+            "Masukkan alamat situs yang valid, misalnya namaanda.com.",
         },
         btnCancel: "Batalkan",
         btnSave: "Terapkan Perubahan",

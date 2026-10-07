@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { CreatorProfileCard } from "@/shared/components/project-detail/creator-profile-card";
 import { ProjectCard } from "@/shared/components/project-card";
 import { userService } from "@/shared/api";
+import { loadPublicFeed } from "@/shared/api/public-feed";
 import type { Project } from "@/shared/lib/types/project";
 import type { Project as ProjectCardData } from "@/shared/lib/types/explore";
 import type { PublicCreatorProfile as PublicCreatorProfileShape } from "@/shared/lib/types/public-creator-profile";
@@ -37,15 +38,28 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
     let active = true;
     // 1. Profil dan project adalah resource publik terpisah. Kegagalan profile
     // tidak boleh menghapus project yang sudah berhasil dikembalikan backend.
+    // Feed publik dipakai sebagai cadangan: endpoint project publik backend
+    // saat ini membaca user_id dari path (route-nya tanpa {user_id}) sehingga
+    // selalu kosong, dan feed membawa `author` untuk nama/avatar/headline.
     void Promise.allSettled([
       userService.getPublicProfile(creatorId),
       userService.listPublicProjects(creatorId, 20, 0),
-    ]).then(([profileResult, projectsResult]) => {
+      loadPublicFeed(),
+    ]).then(([profileResult, projectsResult, feedResult]) => {
         if (!active) return;
-        const projects =
+        const listedProjects =
           projectsResult.status === "fulfilled"
             ? projectsResult.value.projects
             : [];
+        const feedProjects =
+          feedResult.status === "fulfilled"
+            ? feedResult.value.filter(
+                (project) =>
+                  project.ownerId === creatorId ||
+                  project.author?.id === creatorId,
+              )
+            : [];
+        const projects = listedProjects.length ? listedProjects : feedProjects;
         setCreatorProjects(projects);
         const firstAuthor = projects.find((project) => project.author)?.author;
         const profile =

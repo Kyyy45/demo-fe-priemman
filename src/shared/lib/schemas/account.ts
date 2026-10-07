@@ -6,7 +6,11 @@ export const profileUpdateSchema = z.object({
   lastName: z.string().trim().max(80),
   headline: z.string().trim().max(160),
   company: z.string().trim().max(160),
-  websiteUrl: z.union([z.literal(""), z.string().url()]),
+  // Hanya http(s); input tanpa skema dinormalkan ke https di Account Settings.
+  websiteUrl: z.union([
+    z.literal(""),
+    z.string().max(255).url().regex(/^https?:\/\//i),
+  ]),
   location: z.object({
     country: z.string().trim().max(80),
     city: z.string().trim().max(80),

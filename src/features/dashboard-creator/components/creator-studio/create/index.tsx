@@ -92,6 +92,7 @@ import type {
   ProjectVisibility,
 } from "@/shared/lib/types/project";
 import { projectInputSchema } from "@/features/dashboard-creator/schemas";
+import { SOCIAL_ACCOUNTS_AVAILABLE } from "@/shared/lib/features";
 import { cn } from "@/shared/lib/utils";
 import type { PublicCreatorProfile } from "@/shared/lib/types/public-creator-profile";
 import { useT } from "@/shared/providers/language-provider";
@@ -2622,6 +2623,9 @@ export function CreateProjectWizard({
                         </div>
                       </SettingsSection>
 
+                      {/* Disembunyikan sampai backend punya endpoint akun
+                          sosial — tanpa itu daftar ini selalu kosong. */}
+                      {SOCIAL_ACCOUNTS_AVAILABLE ? (
                       <SettingsSection title={s.editor.socialProfiles}>
                         <p className="type-metadata leading-relaxed text-copy-secondary">
                           {s.editor.socialProfilesHelp}
@@ -2672,6 +2676,7 @@ export function CreateProjectWizard({
                           )}
                         </div>
                       </SettingsSection>
+                      ) : null}
 
                       <SettingsSection
                         title={`${s.editor.collaborators} (${collaborators.length})`}

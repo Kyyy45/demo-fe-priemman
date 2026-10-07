@@ -51,7 +51,12 @@ export const userService = {
       undefined,
       { method: "GET", anonymous: true, cache: "no-store" },
     );
-    return parsePublicUserProfile(response);
+    // Backend mengembalikan `Result` error dengan HTTP 200 bila profil gagal
+    // dimuat (mis. user belum punya work experience). Body itu ter-decode
+    // sebagai profil kosong, jadi profil tanpa id diperlakukan sebagai gagal.
+    const profile = parsePublicUserProfile(response);
+    if (!profile.id) throw new Error("Public profile is unavailable.");
+    return profile;
   },
 
   // Langkah public 2 — daftar project published dengan offset pagination.
