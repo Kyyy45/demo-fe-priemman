@@ -66,6 +66,7 @@ export function ProjectLibrary({
         : projectActionService.listSaved({ limit: PAGE_SIZE, offset });
 
     request
+      .then(projectActionService.withThumbnails)
       .then((result) => {
         if (active) {
           setProjects(result);

@@ -6,11 +6,18 @@ import {
   decodeMessage,
   encodeMessage,
 } from "./core/protobuf";
+import { loadPublicFeed, projectCoverUrl } from "./public-feed";
+import { getMediaDeliveryUrl } from "@/shared/lib/media-url";
 import type {
   ListProjectActionsInput,
   ProjectAction,
   ProjectSummary,
 } from "@/shared/lib/types/project-actions";
+
+// Backend saat ini mengisi `thumbnail` dengan `cover_media_id` (UUID media),
+// bukan URL gambar. Nilai yang bukan URL diabaikan supaya <img> tidak
+// meminta "/<uuid>"; sampulnya dicari lewat withThumbnails().
+const isImageUrl = (value: string) => /^(https?:)?\/\//i.test(value);
 
 function parseSummary(bytes: Uint8Array): ProjectSummary {
   const fields = decodeMessage(bytes);
@@ -18,13 +25,30 @@ function parseSummary(bytes: Uint8Array): ProjectSummary {
     const item = fields.find((entry) => entry.field === field)?.value;
     return item === undefined ? "" : asString(item);
   };
+  const thumbnail = get(3);
   return {
     projectId: get(1),
     title: get(2),
-    thumbnail: get(3) || undefined,
+    thumbnail: isImageUrl(thumbnail) ? thumbnail : undefined,
     firstName: get(4),
     lastName: get(5),
   };
+}
+
+// Mengisi sampul yang kosong dari feed publik. Proyek liked/saved selalu
+// PUBLISHED + PUBLIC, jadi ada di feed (hingga 300 proyek terbaru).
+async function withThumbnails(rows: ProjectSummary[]) {
+  if (rows.every((row) => row.thumbnail)) return rows;
+  const feed = await loadPublicFeed().catch(() => []);
+  const covers = new Map(
+    feed.map((project) => [project.id, projectCoverUrl(project)]),
+  );
+  return rows.map((row) => {
+    const cover = row.thumbnail || covers.get(row.projectId);
+    return cover
+      ? { ...row, thumbnail: getMediaDeliveryUrl(cover, { width: 96 }) }
+      : row;
+  });
 }
 
 async function list(
@@ -73,4 +97,5 @@ export const projectActionService = {
   listSaved: (input?: ListProjectActionsInput) => list("saved", input),
   save: (projectId: string) => mutate("saved", projectId, "POST"),
   unsave: (projectId: string) => mutate("saved", projectId, "DELETE"),
+  withThumbnails,
 };
