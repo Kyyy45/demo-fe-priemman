@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
-import { Eye, Heart, Pencil, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Bookmark,
+  Eye,
+  Heart,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { ArrowUpRight } from "@phosphor-icons/react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -22,11 +29,13 @@ import { ProjectDetailOverlay as ExploreProjectDetailOverlay } from "@/shared/co
 import type { Project as ExploreProject } from "@/shared/lib/types/explore";
 import { toast } from "sonner";
 import {
-  getErrorMessage,
   isProjectOwnedBy,
+  projectInputFromProject,
   projectService,
   userService,
 } from "@/shared/api";
+import { creatorStudioErrorMessage } from "./api-errors";
+import { DashboardBanner } from "@/shared/layout/dashboard/dashboard-banner";
 import type { Project as ApiProject } from "@/shared/lib/types/project";
 import {
   CutoutCard,
@@ -42,7 +51,8 @@ import {
   cutoutCardSurfaceClassName,
 } from "@/shared/ui/cutout-card";
 
-type ProjectStatus = "published" | "draft";
+// Mengikuti enum ProjectStatus di project.proto (tanpa UNSPECIFIED).
+type ProjectStatus = "published" | "draft" | "archived";
 
 type StudioProject = {
   id: string;
@@ -57,11 +67,11 @@ type StudioProject = {
   tools: string[];
   disciplines: string[];
   tags: string[];
+  // ProjectMetrics di proto hanya views, likes, saves.
   metrics: {
     views: string;
     likes: string;
     saves: string;
-    comments: string;
   };
   source: ApiProject;
 };
@@ -113,7 +123,10 @@ function toStudioProject(
     title: project.title,
     owner,
     role: role || project.tags.slice(0, 3).join(", ") || "Creator",
-    status: project.status === "published" ? "published" : "draft",
+    status:
+      project.status === "published" || project.status === "archived"
+        ? project.status
+        : "draft",
     postedAt: date
       ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
           new Date(date),
@@ -129,7 +142,6 @@ function toStudioProject(
       views: formatMetric(project.metrics.views),
       likes: formatMetric(project.metrics.likes),
       saves: formatMetric(project.metrics.saves),
-      comments: "-",
     },
     source: project,
   };
@@ -243,6 +255,9 @@ function ProjectCard({
                 <span className="flex items-center gap-1.5">
                   <Heart className="h-4 w-4" /> {project.metrics.likes}
                 </span>
+                <span className="flex items-center gap-1.5">
+                  <Bookmark className="h-4 w-4" /> {project.metrics.saves}
+                </span>
               </div>
             </CutoutCardFooter>
           ) : null}
@@ -267,17 +282,15 @@ export function CreatorStudio() {
   const [ownerRole, setOwnerRole] = useState("Creator");
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [changingStatus, setChangingStatus] = useState(false);
   const [projectPendingDelete, setProjectPendingDelete] =
     useState<StudioProject | null>(null);
 
   // Memuat project dan profile creator secara bersamaan
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      projectService.list({ pageSize: 50 }),
-      userService.getMe(),
-    ])
-      .then(([result, user]) => {
+    void Promise.all([projectService.listOwned(), userService.getMe()])
+      .then(([ownedResult, user]) => {
         if (!active) return;
         const name =
           [user.firstName, user.lastName].filter(Boolean).join(" ") ||
@@ -286,7 +299,7 @@ export function CreatorStudio() {
         const role = user.headline || user.company || "Creator";
         setOwnerName(name);
         setOwnerRole(role);
-        const ownedProjects = result.projects.filter((project) =>
+        const ownedProjects = ownedResult.filter((project) =>
           isProjectOwnedBy(project, user.id),
         );
         setProjects(
@@ -296,7 +309,10 @@ export function CreatorStudio() {
         );
       })
       .catch((error) => {
-        if (active) toast.error(getErrorMessage(error, s.feedback.loadError));
+        if (active)
+          toast.error(
+            creatorStudioErrorMessage(error, s.errors, s.feedback.loadError),
+          );
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -304,7 +320,7 @@ export function CreatorStudio() {
     return () => {
       active = false;
     };
-  }, [locale, s.feedback.loadError, s.status.notPublished]);
+  }, [locale, s.errors, s.feedback.loadError, s.status.notPublished]);
 
   // Menyinkronkan project aktif dengan query parameter
   useEffect(() => {
@@ -347,9 +363,18 @@ export function CreatorStudio() {
       all: projects,
       drafts: projects.filter((project) => project.status === "draft"),
       published: projects.filter((project) => project.status === "published"),
+      archived: projects.filter((project) => project.status === "archived"),
     }),
     [projects],
   );
+
+  // Label kartu: status proto, plus visibility untuk project published yang
+  // UNLISTED (tidak tampil di feed walau sudah dipublikasikan).
+  const statusLabel = (project: StudioProject) =>
+    project.status === "published" &&
+    project.source.visibility === "unlisted"
+      ? `${s.status.published} · ${s.status.unlisted}`
+      : s.status[project.status];
 
   // Memasukkan hasil save terbaru ke daftar project
   const saveProject = (saved: ApiProject) => {
@@ -391,7 +416,46 @@ export function CreatorStudio() {
         ),
       );
     } catch (error) {
-      toast.error(getErrorMessage(error, s.feedback.refreshError));
+      toast.error(
+        creatorStudioErrorMessage(error, s.errors, s.feedback.refreshError),
+      );
+    }
+  };
+
+  // Arsip/pulihkan = PUT dengan ProjectInput lengkap dan status baru.
+  // Project yang dipulihkan kembali ke DRAFT (bukan langsung published).
+  const changeStatus = async (
+    project: StudioProject,
+    status: Exclude<ProjectStatus, "published">,
+  ) => {
+    setChangingStatus(true);
+    try {
+      const saved = await projectService.update(
+        project.id,
+        projectInputFromProject(project.source, { status }),
+      );
+      const mapped = toStudioProject(
+        saved,
+        ownerName,
+        ownerRole,
+        locale,
+        s.status.notPublished,
+      );
+      setProjects((items) =>
+        items.map((item) => (item.id === mapped.id ? mapped : item)),
+      );
+      setSelectedProject(mapped);
+      toast.success(
+        status === "archived"
+          ? s.feedback.archiveSuccess
+          : s.feedback.restoreSuccess,
+      );
+    } catch (error) {
+      toast.error(
+        creatorStudioErrorMessage(error, s.errors, s.feedback.statusError),
+      );
+    } finally {
+      setChangingStatus(false);
     }
   };
 
@@ -405,7 +469,9 @@ export function CreatorStudio() {
       closeProject();
       toast.success(s.feedback.deleteSuccess);
     } catch (error) {
-      toast.error(getErrorMessage(error, s.feedback.deleteError));
+      toast.error(
+        creatorStudioErrorMessage(error, s.errors, s.feedback.deleteError),
+      );
     } finally {
       setDeleting(false);
     }
@@ -441,7 +507,7 @@ export function CreatorStudio() {
         key={project.id}
         onOpen={(item) => void openProject(item)}
         project={project}
-        statusLabel={s.status[project.status]}
+        statusLabel={statusLabel(project)}
       />
     ));
   };
@@ -475,6 +541,7 @@ export function CreatorStudio() {
         </DialogHeader>
         <DialogFooter className="m-0 rounded-none border-0 bg-transparent p-0">
           <Button
+            className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
             disabled={deleting}
             onClick={() => setProjectPendingDelete(null)}
             variant="outline"
@@ -482,6 +549,7 @@ export function CreatorStudio() {
             {s.deleteDialog.cancel}
           </Button>
           <Button
+            className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
             disabled={deleting}
             onClick={() => {
               if (projectPendingDelete)
@@ -527,8 +595,35 @@ export function CreatorStudio() {
                 <Pencil className="size-4" />
               </Button>
               <Button
+                aria-label={
+                  selectedProject.status === "archived"
+                    ? s.actions.restore
+                    : s.actions.archive
+                }
+                disabled={changingStatus || deleting}
+                onClick={() =>
+                  void changeStatus(
+                    selectedProject,
+                    selectedProject.status === "archived" ? "draft" : "archived",
+                  )
+                }
+                size="icon"
+                title={
+                  selectedProject.status === "archived"
+                    ? s.actions.restore
+                    : s.actions.archive
+                }
+                variant="outline"
+              >
+                {selectedProject.status === "archived" ? (
+                  <ArchiveRestore className="size-4" />
+                ) : (
+                  <Archive className="size-4" />
+                )}
+              </Button>
+              <Button
                 aria-label={s.actions.delete}
-                disabled={deleting}
+                disabled={changingStatus || deleting}
                 onClick={() => setProjectPendingDelete(selectedProject)}
                 size="icon"
                 variant="outline"
@@ -558,23 +653,7 @@ export function CreatorStudio() {
     // <main> di DashboardLayout sudah menerapkannya ke semua halaman dashboard;
     // menambahkannya lagi di root halaman bikin padding bawah dobel.
     <div className="@container/creator-studio flex w-full min-w-0 flex-col gap-[var(--grid-gap)] overflow-x-clip">
-      {/* Studio Header — header identik dengan menu Library (lihat project-library.tsx):
-          class, padding, dan ukuran teks sama persis, tanpa baris eyebrow. */}
-      <header className="relative flex min-h-40 items-end overflow-hidden rounded-[var(--radius-card)] border border-brand/25 p-6 text-on-brand m3-medium:min-h-48">
-        <Image
-          alt=""
-          className="object-cover"
-          fill
-          priority
-          sizes="(max-width: 768px) 100vw, 1440px"
-          src="/banner_card.png"
-        />
-        <div className="absolute inset-0 bg-heading/30 dark:bg-transparent" />
-        <div className="relative min-w-0">
-          <h1 className="dashboard-page-title !text-on-brand">{s.title}</h1>
-          <p className="dashboard-body mt-3 !text-on-brand/75">{s.subtitle}</p>
-        </div>
-      </header>
+      <DashboardBanner subtitle={s.subtitle} title={s.title} />
       {deleteProjectDialog}
 
       {/* Toolbar di bawah banner — rectangle TabsList dan tombol Create project
@@ -600,6 +679,7 @@ export function CreatorStudio() {
             <TabsTrigger value="all">{s.tabs.all}</TabsTrigger>
             <TabsTrigger value="drafts">{s.tabs.drafts}</TabsTrigger>
             <TabsTrigger value="published">{s.tabs.published}</TabsTrigger>
+            <TabsTrigger value="archived">{s.tabs.archived}</TabsTrigger>
           </TabsList>
           <CreateProjectWizard onSaved={saveProject} />
         </div>
@@ -616,6 +696,11 @@ export function CreatorStudio() {
         <TabsContent value="published" className="mt-0 outline-none">
           <div className="grid grid-cols-1 gap-[var(--grid-gap)] m3-medium:grid-cols-2 m3-extra-large:grid-cols-3">
             {projectGrid(projectGroups.published)}
+          </div>
+        </TabsContent>
+        <TabsContent value="archived" className="mt-0 outline-none">
+          <div className="grid grid-cols-1 gap-[var(--grid-gap)] m3-medium:grid-cols-2 m3-extra-large:grid-cols-3">
+            {projectGrid(projectGroups.archived)}
           </div>
         </TabsContent>
       </Tabs>

@@ -12,6 +12,7 @@ import {
   FoldHorizontal,
   UnfoldHorizontal,
   ImageIcon,
+  ImagePlus,
   Italic,
   LayoutGrid,
   Link2,
@@ -57,15 +58,33 @@ import {
 } from "@/shared/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/ui/alert-dialog";
+import {
   AppleDock,
   AppleDockIcon,
 } from "@/shared/ui/shadcn-space/apple-dock/apple-dock-01";
 import {
-  getErrorMessage,
+  creatorDirectory,
+  creatorDisplayName,
   mediaService,
   projectService,
   userService,
+  type CreatorSummary,
 } from "@/shared/api";
+import {
+  CollaboratorPicker,
+  CreatorAvatar,
+  type CollaboratorPick,
+} from "./collaborator-picker";
+import { creatorStudioErrorMessage } from "../api-errors";
 import type {
   ProjectCollaborator,
   ProjectInput,
@@ -102,7 +121,11 @@ import {
   toStoredBlocks,
 } from "./editor-utils";
 import { InsertContentSlot } from "./insert-content-slot";
-import { EMBED_FRAME_CLASS, toEmbedSource } from "@/shared/lib/embed";
+import {
+  EMBED_FRAME_CLASS,
+  normalizeEmbedUrl,
+  toEmbedSource,
+} from "@/shared/lib/embed";
 import {
   CANVAS_BOTTOM_PADDING_CLASS,
   CANVAS_TOP_PADDING_CLASS,
@@ -117,6 +140,12 @@ import {
 type ContentKind = "image" | "text" | "grid" | "video" | "embed";
 
 const BLOCK_SELECTOR = "h1, h2, p, div";
+
+// Popup milik toolbar teks yang di-render lewat Portal (dropdown Select dan
+// dialog tautan). Fokus/klik di dalamnya bukan berarti user keluar dari mode
+// edit, meski secara DOM berada di luar block.
+const EDITOR_PORTAL_SELECTOR =
+  '[data-slot^="select-"], [data-slot^="alert-dialog"]';
 
 const elementOf = (node: Node | null) =>
   node instanceof Element ? node : (node?.parentElement ?? null);
@@ -136,13 +165,22 @@ function isFullBleed(block: EditorBlock | undefined) {
   if (!block) return false;
   if (block.type === "grid") return true;
   return (
-    (block.type === "image" || block.type === "video") &&
+    (block.type === "image" ||
+      block.type === "video" ||
+      block.type === "embed") &&
     block.width === "full"
   );
 }
 
 const CREATE_PROJECT_OPEN_KEY = "priemman:create-project:open";
 const CREATE_PROJECT_RECOVERY_KEY = "priemman:create-project:recovery:v1";
+
+// Batas dari backend: ProjectInput.content maksimal 1 MB (isExceeding1MB,
+// dihitung dalam byte UTF-8).
+const MAX_CONTENT_BYTES = 1024 * 1024;
+// Sama dengan projectInputSchema (maks 20 tag, 48 karakter per tag).
+const MAX_TAGS = 20;
+const MAX_TAG_LENGTH = 48;
 
 function ToolbarButton({
   action,
@@ -234,6 +272,71 @@ function SidebarGridTile({
   );
 }
 
+// Kartu bagian di dialog Detail proyek — header bar & border sama dengan
+// panel sidebar Creator Studio ("Tambah konten" / "Opsi proyek").
+function SettingsSection({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: React.ReactNode;
+}) {
+  return (
+    // Tanpa overflow-hidden: dropdown (mis. pencarian kolaborator) harus bisa
+    // keluar dari kartu dan ikut menambah area scroll dialog. Sudut header
+    // dibulatkan sendiri sebagai gantinya.
+    <section className="rounded-[var(--radius-panel)] border border-border-subtle/60 bg-surface-raised">
+      <h3 className="rounded-t-[calc(var(--radius-panel)-1px)] border-b border-border-subtle/60 bg-surface-muted/60 px-4 py-3 type-metadata font-semibold text-copy-muted">
+        {title}
+      </h3>
+      <div className="space-y-5 p-4">{children}</div>
+    </section>
+  );
+}
+
+// Tinggi & radius field disamakan dengan tombol Creator Studio (48px) dan
+// pola form halaman Account.
+const SETTINGS_FIELD_CLASS =
+  "min-h-12 rounded-[var(--radius-control)] px-4 type-body";
+
+// Pil ↔ gelap di pojok kanan atas block media/embed (pola Behance) untuk
+// berpindah antara inset (bermargin) dan full width.
+function WidthToggle({
+  full,
+  label,
+  onToggle,
+}: {
+  full: boolean;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <div className={cn(BLOCK_CONTROLS_CLASS, "right-3 top-3")}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              aria-label={label}
+              className="flex h-8 items-center justify-center rounded-full border border-on-dark/70 bg-action-ink/85 px-3 text-on-dark shadow-[var(--shadow-control)] transition-colors hover:bg-action-ink focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
+              onClick={onToggle}
+              type="button"
+            />
+          }
+        >
+          {full ? (
+            <FoldHorizontal className="size-4" />
+          ) : (
+            <UnfoldHorizontal className="size-4" />
+          )}
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={8}>
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
+
 // Pensil biru di pojok kiri atas block (pola Behance) dengan menu aksi.
 function BlockActionsMenu({
   actions,
@@ -287,16 +390,21 @@ const BLOCK_CONTROLS_CLASS =
 const BLOCK_HOVER_OUTLINE_CLASS =
   "pointer-events-none absolute inset-0 border border-brand opacity-0 transition-opacity group-hover:opacity-100 group-has-[[data-popup-open]]:opacity-100";
 
-// Pecah string tags "a, b, c" menjadi array unik tanpa entry kosong
+// Pecah string tags "a, b, c" menjadi array unik tanpa entry kosong.
+// project_tags memakai PRIMARY KEY (project_id, tag) dengan collation
+// utf8mb4_unicode_ci (tidak peka huruf besar/kecil), jadi "UI" dan "ui"
+// bentrok di database — duplikat dibuang tanpa membedakan kapitalisasi.
 function parseTagList(value: string) {
-  return Array.from(
-    new Set(
-      value
-        .split(",")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    ),
-  );
+  const seen = new Set<string>();
+  return value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const key = tag.toLocaleLowerCase();
+      if (!tag || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function TagsField({
@@ -310,29 +418,61 @@ function TagsField({
   placeholder?: string;
   value: string;
 }) {
+  const copy = useT().dashboardCreator.creatorStudio.editor;
   const tags = parseTagList(value);
   const [draft, setDraft] = useState("");
+  const full = tags.length >= MAX_TAGS;
 
   const commitDraft = () => {
     const next = draft.trim();
     setDraft("");
-    if (!next || tags.includes(next)) return;
-    onChange([...tags, next].join(", "));
+    if (!next || full) return;
+    // Teks tempelan "a, b, c" dipecah dan dipotong di batas MAX_TAGS.
+    onChange(
+      parseTagList(`${value},${next}`).slice(0, MAX_TAGS).join(", "),
+    );
   };
   const removeTag = (tag: string) =>
     onChange(tags.filter((item) => item !== tag).join(", "));
+  // Tag pertama = kategori utama (label kartu & "proyek terkait" di Explore).
+  const makePrimary = (tag: string) =>
+    onChange([tag, ...tags.filter((item) => item !== tag)].join(", "));
 
   return (
     <div className="flex min-h-12 w-full flex-wrap items-center gap-1.5 rounded-[var(--radius-control)] border border-border-strong bg-surface-raised p-1.5 focus-within:ring-3 focus-within:ring-brand">
-      {tags.map((tag) => (
+      {tags.map((tag, index) => (
         <span
-          className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] bg-brand/10 py-1 pl-3 pr-1.5 type-metadata font-medium text-brand"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-[var(--radius-pill)] py-1 pr-1.5 type-metadata font-medium",
+            index === 0
+              ? "bg-brand pl-1.5 text-on-brand"
+              : "bg-brand/10 pl-3 text-brand",
+          )}
           key={tag}
         >
-          {tag}
+          {index === 0 ? (
+            <span className="rounded-[var(--radius-pill)] bg-on-brand/20 px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider">
+              {copy.primaryTag}
+            </span>
+          ) : null}
+          {index === 0 ? (
+            tag
+          ) : (
+            <button
+              className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              onClick={() => makePrimary(tag)}
+              title={copy.makePrimaryTag}
+              type="button"
+            >
+              {tag}
+            </button>
+          )}
           <button
-            aria-label={tag}
-            className="flex size-5 items-center justify-center rounded-full hover:bg-brand/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            aria-label={`${copy.removeTag} ${tag}`}
+            className={cn(
+              "flex size-5 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+              index === 0 ? "hover:bg-on-brand/20" : "hover:bg-brand/20",
+            )}
             onClick={() => removeTag(tag)}
             type="button"
           >
@@ -341,8 +481,10 @@ function TagsField({
         </span>
       ))}
       <input
-        className="min-w-24 flex-1 bg-transparent px-1.5 py-1 type-label outline-none placeholder:text-copy-muted"
+        className="min-w-24 flex-1 bg-transparent px-1.5 py-1 type-label outline-none placeholder:text-copy-muted disabled:cursor-not-allowed"
+        disabled={full}
         id={id}
+        maxLength={MAX_TAG_LENGTH}
         onBlur={commitDraft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -353,7 +495,13 @@ function TagsField({
             removeTag(tags[tags.length - 1]);
           }
         }}
-        placeholder={tags.length ? "" : placeholder}
+        placeholder={
+          full
+            ? copy.tagLimit.replace("{count}", String(MAX_TAGS))
+            : tags.length
+              ? ""
+              : placeholder
+        }
         value={draft}
       />
     </div>
@@ -413,6 +561,10 @@ function RichTextBlockEditor({
     readableTextColor(backgroundColor),
   );
   const [selectedStyle, setSelectedStyle] = useState<TextStyle>(block.style);
+  const [linkDialog, setLinkDialog] = useState<{
+    url: string;
+    invalid: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -549,10 +701,36 @@ function RichTextBlockEditor({
     commit();
   };
   const addLink = () => {
-    const href = window.prompt(copy.linkPrompt);
-    if (href?.trim() && /^(https?:|mailto:|tel:)/i.test(href.trim()))
-      command("createLink", href.trim());
-    else if (href?.trim()) toast.error(copy.invalidLink);
+    rememberSelection();
+    // Kursor di dalam tautan yang sudah ada → dialog terisi URL-nya (edit).
+    const existing = rangeRef.current
+      ? elementOf(rangeRef.current.startContainer)?.closest("a")
+      : null;
+    setLinkDialog({ url: existing?.getAttribute("href") ?? "", invalid: false });
+  };
+  const applyLink = () => {
+    if (!linkDialog) return;
+    const raw = linkDialog.url.trim();
+    // "contoh.com" tanpa skema dianggap alamat web.
+    const href = /^[a-z][a-z\d+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+    if (!raw || !/^(https?:|mailto:|tel:)/i.test(href)) {
+      setLinkDialog({ ...linkDialog, invalid: true });
+      return;
+    }
+    setLinkDialog(null);
+    if (rangeRef.current && !rangeRef.current.collapsed) {
+      command("createLink", href);
+      return;
+    }
+    // Tanpa teks terpilih, createLink tidak melakukan apa-apa — sisipkan URL
+    // itu sendiri sebagai teks tautan. Nilai di-escape; sanitizer tetap
+    // memvalidasi ulang href saat commit.
+    const escaped = href
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    command("insertHTML", `<a href="${escaped}">${escaped}</a>`);
   };
   const pastePlainText = (event: React.ClipboardEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -619,7 +797,14 @@ function RichTextBlockEditor({
     );
   };
   const finishEditing = (event: React.FocusEvent<HTMLDivElement>) => {
-    if (selectInteractingRef.current || hasActiveEditorSelection()) {
+    // Dialog tautan bersifat modal: saat terbuka, base-ui menjadikan semua di
+    // luarnya `inert`, sehingga editor ter-blur tanpa relatedTarget dan
+    // selection bisa terhapus — itu bukan berarti user selesai mengedit.
+    if (
+      linkDialog !== null ||
+      selectInteractingRef.current ||
+      hasActiveEditorSelection()
+    ) {
       commit();
       return;
     }
@@ -632,7 +817,7 @@ function RichTextBlockEditor({
       nextTarget instanceof Node &&
       (wrapperRef.current?.contains(nextTarget) ||
         (nextTarget instanceof Element &&
-          nextTarget.closest('[data-slot^="select-"]')))
+          nextTarget.closest(EDITOR_PORTAL_SELECTOR)))
     ) {
       commit();
       return;
@@ -651,7 +836,12 @@ function RichTextBlockEditor({
     const attachedAt = performance.now();
     const finishOnOutsideClick = (event: MouseEvent) => {
       if (event.timeStamp <= attachedAt) return;
-      if (selectInteractingRef.current || hasActiveEditorSelection()) return;
+      if (
+        linkDialog !== null ||
+        selectInteractingRef.current ||
+        hasActiveEditorSelection()
+      )
+        return;
       if (event.target instanceof Node) {
         if (wrapperRef.current?.contains(event.target)) return;
         // Dropdown Select (Paragraf/Font/Ukuran) di-render lewat React
@@ -662,7 +852,7 @@ function RichTextBlockEditor({
           event.target instanceof Element
             ? event.target
             : event.target.parentElement;
-        if (target?.closest('[data-slot^="select-"]')) return;
+        if (target?.closest(EDITOR_PORTAL_SELECTOR)) return;
       }
       finishOrRemoveEmpty();
       setIsEditing(false);
@@ -942,6 +1132,66 @@ function RichTextBlockEditor({
           </div>
         </>
       ) : null}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) setLinkDialog(null);
+        }}
+        open={linkDialog !== null}
+      >
+        <AlertDialogContent finalFocus={editorRef}>
+          <form
+            className="grid gap-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              applyLink();
+            }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>{copy.addLink}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {copy.linkDescription}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-2">
+              <Label htmlFor={`link-url-${block.id}`}>{copy.linkPrompt}</Label>
+              <Input
+                aria-invalid={linkDialog?.invalid}
+                autoFocus
+                id={`link-url-${block.id}`}
+                onChange={(event) =>
+                  setLinkDialog((current) =>
+                    current
+                      ? { url: event.target.value, invalid: false }
+                      : current,
+                  )
+                }
+                placeholder={copy.linkPlaceholder}
+                value={linkDialog?.url ?? ""}
+              />
+              {linkDialog?.invalid ? (
+                <p className="type-metadata text-danger" role="alert">
+                  {copy.invalidLink}
+                </p>
+              ) : null}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
+                type="button"
+              >
+                {copy.cancel}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
+                disabled={!linkDialog?.url.trim()}
+                type="submit"
+              >
+                {copy.applyLink}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -961,8 +1211,11 @@ export function CreateProjectWizard({
   const [tags, setTags] = useState("");
   const [visibility, setVisibility] = useState<ProjectVisibility>("public");
   const [collaborators, setCollaborators] = useState<ProjectCollaborator[]>([]);
-  const [collaboratorId, setCollaboratorId] = useState("");
-  const [collaboratorRole, setCollaboratorRole] = useState("");
+  // Nama/avatar kolaborator — backend hanya mengembalikan user_id + role.
+  const [collaboratorProfiles, setCollaboratorProfiles] = useState<
+    Record<string, CreatorSummary>
+  >({});
+  const [currentUserId, setCurrentUserId] = useState("");
   const [blocks, setBlocks] = useState<EditorBlock[]>([]);
   const [assets, setAssets] = useState<EditorAsset[]>([]);
   const [coverKey, setCoverKey] = useState("");
@@ -1129,6 +1382,7 @@ export function CreateProjectWizard({
       .getMe()
       .then((currentUser) => {
         if (!active) return;
+        setCurrentUserId(currentUser.id);
         setProfileSocials(
           Object.fromEntries(
             currentUser.connectedAccounts
@@ -1174,6 +1428,46 @@ export function CreateProjectWizard({
   }, [open]);
   const hasUnsavedChanges =
     editorReady && currentFingerprint !== initialFingerprint;
+
+  // Kolaborator dari proyek tersimpan hanya berisi user_id; nama & avatar
+  // dicari di direktori creator saat panel Detail proyek dibuka.
+  useEffect(() => {
+    if (panel !== "settings") return;
+    const missing = collaborators
+      .map((item) => item.userId)
+      .filter((id) => !collaboratorProfiles[id]);
+    if (!missing.length) return;
+    let active = true;
+    creatorDirectory.findMany(missing).then(
+      (found) => {
+        if (active && found.length)
+          setCollaboratorProfiles((current) => ({
+            ...current,
+            ...Object.fromEntries(found.map((creator) => [creator.id, creator])),
+          }));
+      },
+      () => undefined,
+    );
+    return () => {
+      active = false;
+    };
+  }, [collaboratorProfiles, collaborators, panel]);
+
+  // Backend menolak user_id kembar; pemilik juga tidak dicantumkan sebagai
+  // kolaborator proyeknya sendiri. Role diisi belakangan di baris kolaborator.
+  const addCollaborator = ({ id, creator }: CollaboratorPick) => {
+    if (id === currentUserId) {
+      toast.error(s.editor.collaboratorSelf);
+      return;
+    }
+    if (collaborators.some((item) => item.userId === id)) {
+      toast.error(s.editor.collaboratorDuplicate);
+      return;
+    }
+    setCollaborators((items) => [...items, { userId: id, role: "" }]);
+    if (creator)
+      setCollaboratorProfiles((current) => ({ ...current, [id]: creator }));
+  };
 
   // Menyimpan status editor terbuka pada session browser
   useEffect(() => {
@@ -1388,12 +1682,17 @@ export function CreateProjectWizard({
 
   const submitEmbed = () => {
     if (!embedDialog) return;
-    const url = embedDialog.url.trim();
-    if (!toEmbedSource(url)) {
+    // Disimpan dalam bentuk https lengkap supaya halaman publik tidak
+    // bergantung pada normalisasi yang sama.
+    const url = normalizeEmbedUrl(embedDialog.url);
+    if (!url || !toEmbedSource(url)) {
       setEmbedDialog({ ...embedDialog, invalid: true });
       return;
     }
-    insertBlocks([{ id: newId(), type: "embed", url }], embedDialog.insertAt);
+    insertBlocks(
+      [{ id: newId(), type: "embed", url, width: "inset" }],
+      embedDialog.insertAt,
+    );
     setEmbedDialog(null);
   };
 
@@ -1434,6 +1733,13 @@ export function CreateProjectWizard({
       items.map((block) => (block.id === id ? updater(block) : block)),
     );
   };
+
+  const toggleBlockWidth = (id: string) =>
+    updateBlock(id, (item) =>
+      item.type === "image" || item.type === "video" || item.type === "embed"
+        ? { ...item, width: item.width === "full" ? "inset" : "full" }
+        : item,
+    );
 
   // Melepas asset (dan object URL-nya) yang tidak lagi dipakai block mana pun
   const releaseUnusedAssets = (keys: string[], remaining: EditorBlock[]) => {
@@ -1530,6 +1836,30 @@ export function CreateProjectWizard({
       }
     : null;
 
+  // ProjectInput.content: JSON dokumen editor dengan media id dari
+  // `mediaIdFor` (key asset lokal untuk cek awal, id media hasil upload
+  // untuk payload final).
+  const serializeContent = (mediaIdFor: (key: string) => string) => {
+    const stored: StoredContent = {
+      version: 1,
+      editor: "priemman-blocks",
+      summary,
+      appearance: { backgroundColor, contentGap },
+      authorProfile: authorProfile ?? undefined,
+      socialLinks: Object.fromEntries(
+        selectedSocials.flatMap((platform) =>
+          profileSocials[platform]
+            ? [[platform, profileSocials[platform]]]
+            : [],
+        ),
+      ),
+      doc: { type: "doc", blocks: toStoredBlocks(blocks, mediaIdFor) },
+    };
+    return JSON.stringify(stored);
+  };
+  const exceedsContentLimit = (content: string) =>
+    new TextEncoder().encode(content).byteLength > MAX_CONTENT_BYTES;
+
   // Mengunggah media lalu menyimpan project sebagai draft atau published
   const save = async (publish: boolean) => {
     if (publish && !title.trim()) {
@@ -1543,22 +1873,25 @@ export function CreateProjectWizard({
       return;
     }
 
+    // Visibility pilihan creator tetap dikirim saat menyimpan draf: backend
+    // hanya menampilkan project yang status PUBLISHED + visibility PUBLIC,
+    // jadi draf tetap privat, dan pilihan Unlisted tidak hilang saat draf
+    // dibuka lagi (sebelumnya draf selalu dikirim sebagai DRAFT).
     const validation = projectInputSchema.safeParse({
       title: title.trim() || s.editor.untitled,
-      tags: Array.from(
-        new Set(
-          tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-        ),
-      ),
+      tags: parseTagList(tags),
       content: summary,
-      visibility: publish ? visibility : "draft",
+      visibility,
       status: publish ? "published" : "draft",
     });
     if (!validation.success) {
       toast.error(validation.error.issues[0]?.message ?? s.editor.saveFailed);
+      return;
+    }
+    // Dicek sebelum upload supaya media tidak terunggah sia-sia (key lokal
+    // sedikit lebih panjang dari id media, jadi perkiraan ini aman).
+    if (exceedsContentLimit(serializeContent((key) => key))) {
+      toast.error(s.editor.contentTooLarge);
       return;
     }
 
@@ -1611,42 +1944,24 @@ export function CreateProjectWizard({
         ...item,
         order: index,
       }));
-      const storedBlocks = toStoredBlocks(
-        blocks,
-        (key) => resolved.get(key)?.id ?? "",
-      );
-      const stored: StoredContent = {
-        version: 1,
-        editor: "priemman-blocks",
-        summary,
-        appearance: { backgroundColor, contentGap },
-        authorProfile: authorProfile ?? undefined,
-        socialLinks: Object.fromEntries(
-          selectedSocials.flatMap((platform) =>
-            profileSocials[platform]
-              ? [[platform, profileSocials[platform]]]
-              : [],
-          ),
-        ),
-        doc: { type: "doc", blocks: storedBlocks },
-      };
+      const content = serializeContent((key) => resolved.get(key)?.id ?? "");
+      if (exceedsContentLimit(content)) {
+        toast.error(s.editor.contentTooLarge);
+        return;
+      }
       const input: ProjectInput = {
         title: title.trim() || s.editor.untitled,
-        tags: Array.from(
-          new Set(
-            tags
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean),
-          ),
-        ),
+        tags: parseTagList(tags),
         media,
-        collaborators,
-        visibility: publish ? visibility : "draft",
+        collaborators: collaborators.map((item) => ({
+          ...item,
+          role: item.role.trim(),
+        })),
+        visibility,
         status: publish ? "published" : "draft",
         coverMediaId:
           (coverAsset ? resolved.get(coverAsset.key)?.id : undefined) || "",
-        content: JSON.stringify(stored),
+        content,
       };
       const saved = project
         ? await projectService.update(project.id, input)
@@ -1660,12 +1975,32 @@ export function CreateProjectWizard({
       onSaved?.(persisted);
       setOpen(false);
     } catch (error) {
-      const message = getErrorMessage(error, s.editor.saveFailed);
-      toast.error(message);
+      toast.error(
+        creatorStudioErrorMessage(error, s.errors, s.editor.saveFailed),
+      );
     } finally {
       setSubmitIntent(null);
     }
   };
+
+  // Untuk project yang sudah PUBLISHED, simpan sebagai draf mengubah status
+  // menjadi DRAFT (project hilang dari publik), jadi labelnya dibuat eksplisit;
+  // tombol utama menyimpan perubahan dengan status tetap PUBLISHED.
+  const isPublished = project?.status === "published";
+  const draftLabel =
+    submitIntent === "draft"
+      ? s.editor.saving
+      : isPublished
+        ? s.editor.moveToDraft
+        : s.editor.saveDraft;
+  const publishLabel =
+    submitIntent === "publish"
+      ? isPublished
+        ? s.editor.updating
+        : s.editor.publishing
+      : isPublished
+        ? s.editor.update
+        : s.editor.publish;
 
   if (!open) {
     return showTrigger ? (
@@ -1724,16 +2059,14 @@ export function CreateProjectWizard({
             onClick={() => void save(false)}
             variant="outline"
           >
-            {submitIntent === "draft" ? s.editor.saving : s.editor.saveDraft}
+            {draftLabel}
           </Button>
           <Button
             className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
             disabled={submitting}
             onClick={() => void save(true)}
           >
-            {submitIntent === "publish"
-              ? s.editor.publishing
-              : s.editor.publish}
+            {publishLabel}
           </Button>
         </div>
       </header>
@@ -1835,6 +2168,12 @@ export function CreateProjectWizard({
                   );
                 }
 
+                // Gambar, video, dan embed sama-sama bisa inset ↔ full width.
+                const isFull = "width" in block && block.width === "full";
+                const widthLabel = isFull
+                  ? s.editor.addMargin
+                  : s.editor.fullWidth;
+
                 const deleteAction = {
                   key: "delete",
                   label:
@@ -1848,35 +2187,42 @@ export function CreateProjectWizard({
                 if (block.type === "embed") {
                   const source = toEmbedSource(block.url);
                   return (
+                    // Lebar sama dengan gambar: inset (bermargin) atau full.
                     <div
-                      className="w-full px-6 m3-medium:px-12 m3-large:px-[88px]"
+                      className={cn(
+                        "group relative mx-auto transition-[width] duration-300",
+                        isFull ? "w-full" : MEDIA_INSET_CLASS,
+                      )}
                       key={block.id}
                       style={{ marginTop }}
                     >
-                      <div className="group relative mx-auto w-full max-w-[1040px]">
-                        {source ? (
-                          <iframe
-                            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                            allowFullScreen
-                            className={cn(
-                              "block w-full border-0",
-                              EMBED_FRAME_CLASS[source.kind],
-                            )}
-                            loading="lazy"
-                            referrerPolicy="strict-origin-when-cross-origin"
-                            sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
-                            src={source.src}
-                            title={s.editor.embed}
-                          />
-                        ) : null}
-                        <div className={BLOCK_HOVER_OUTLINE_CLASS} />
-                        <div className={cn(BLOCK_CONTROLS_CLASS, "left-3 top-3")}>
-                          <BlockActionsMenu
-                            actions={[deleteAction]}
-                            label={s.editor.blockActions}
-                          />
-                        </div>
+                      {source ? (
+                        <iframe
+                          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                          allowFullScreen
+                          className={cn(
+                            "block w-full border-0",
+                            EMBED_FRAME_CLASS[source.kind],
+                          )}
+                          loading="lazy"
+                          referrerPolicy="strict-origin-when-cross-origin"
+                          sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
+                          src={source.src}
+                          title={s.editor.embed}
+                        />
+                      ) : null}
+                      <div className={BLOCK_HOVER_OUTLINE_CLASS} />
+                      <div className={cn(BLOCK_CONTROLS_CLASS, "left-3 top-3")}>
+                        <BlockActionsMenu
+                          actions={[deleteAction]}
+                          label={s.editor.blockActions}
+                        />
                       </div>
+                      <WidthToggle
+                        full={isFull}
+                        label={widthLabel}
+                        onToggle={() => toggleBlockWidth(block.id)}
+                      />
                     </div>
                   );
                 }
@@ -1938,11 +2284,6 @@ export function CreateProjectWizard({
                   );
                 }
 
-                const isFull = block.width === "full";
-                const widthLabel = isFull
-                  ? s.editor.addMargin
-                  : s.editor.fullWidth;
-
                 const asset = assetMap.get(block.assetKey);
                 return (
                   <figure
@@ -1973,52 +2314,31 @@ export function CreateProjectWizard({
                         label={s.editor.blockActions}
                       />
                     </div>
-                    <div className={cn(BLOCK_CONTROLS_CLASS, "right-3 top-3")}>
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <button
-                              aria-label={widthLabel}
-                              className="flex h-8 items-center justify-center rounded-full border border-on-dark/70 bg-action-ink/85 px-3 text-on-dark shadow-[var(--shadow-control)] transition-colors hover:bg-action-ink focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
-                              onClick={() =>
-                                updateBlock(block.id, (item) =>
-                                  item.type === "image" || item.type === "video"
-                                    ? {
-                                        ...item,
-                                        width:
-                                          item.width === "full"
-                                            ? "inset"
-                                            : "full",
-                                      }
-                                    : item,
-                                )
-                              }
-                              type="button"
-                            />
-                          }
-                        >
-                          {isFull ? (
-                            <FoldHorizontal className="size-4" />
-                          ) : (
-                            <UnfoldHorizontal className="size-4" />
-                          )}
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={8}>
-                          {widthLabel}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
+                    <WidthToggle
+                      full={isFull}
+                      label={widthLabel}
+                      onToggle={() => toggleBlockWidth(block.id)}
+                    />
                   </figure>
                 );
               })}
               {blocks.length ? (
-                <InsertContentSlot
-                  active={activeInsertIndex === blocks.length}
-                  items={contentTypes}
-                  onActivate={() => setActiveInsertIndex(blocks.length)}
-                  onClose={() => setActiveInsertIndex(null)}
-                  onSelect={(kind) => addContent(kind, blocks.length)}
-                />
+                // Ruang setelah block terakhir = jarak konten (tempat block
+                // berikutnya akan muncul), dengan "+" di tengahnya — supaya
+                // pengaturan "Jarak konten" langsung terlihat walau baru ada
+                // satu block. Minimal 40px agar "+" tetap bisa diklik.
+                <div
+                  className="flex w-full items-center"
+                  style={{ minHeight: Math.max(contentGap, 40) }}
+                >
+                  <InsertContentSlot
+                    active={activeInsertIndex === blocks.length}
+                    items={contentTypes}
+                    onActivate={() => setActiveInsertIndex(blocks.length)}
+                    onClose={() => setActiveInsertIndex(null)}
+                    onSelect={(kind) => addContent(kind, blocks.length)}
+                  />
+                </div>
               ) : null}
             </div>
           </div>
@@ -2170,80 +2490,78 @@ export function CreateProjectWizard({
               }}
               open={panel === "settings"}
             >
-              <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden m3-medium:max-w-[1040px]">
+              {/* sm:!max-w — DialogContent bawaan punya sm:max-w-md (448px) yang
+                  di CSS keluar SETELAH breakpoint m3-medium, jadi lebar lama
+                  selalu kalah dan isi dialog terhimpit. */}
+              <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:!max-w-[960px]">
                 <DialogHeader className="pr-8">
-                  <DialogTitle>{s.editor.settingsTitle}</DialogTitle>
+                  <DialogTitle className="dashboard-card-title">
+                    {s.editor.settingsTitle}
+                  </DialogTitle>
                   <DialogDescription>
                     {s.editor.settingsDescription}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="min-h-0 overflow-y-auto overscroll-contain p-1 [scrollbar-gutter:stable]">
-                  <div className="grid items-start gap-[var(--card-padding)] m3-expanded:grid-cols-[minmax(0,0.85fr)_minmax(0,1.4fr)]">
-                    <section className="space-y-4 m3-expanded:sticky m3-expanded:top-0">
-                      <h3 className="type-label font-semibold">
-                        {s.editor.projectCover}
-                      </h3>
-                      <div className="group relative aspect-[4/3] overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-surface-muted shadow-[var(--shadow-control)]">
-                        {coverAsset ? (
-                          <img
-                            alt={s.editor.selectedCover}
-                            className="h-full w-full object-cover"
-                            src={coverAsset.url}
-                          />
-                        ) : (
-                          <div className="flex h-full flex-col items-center justify-center gap-3 pb-12 text-copy-secondary">
-                            <ImageIcon className="size-9" />
-                            <span className="type-label">
-                              {s.editor.noCover}
-                            </span>
+                <div className="-mx-1 min-h-0 overflow-y-auto overscroll-contain px-1">
+                  <div className="grid items-start gap-[var(--grid-gap)] m3-expanded:grid-cols-[300px_minmax(0,1fr)]">
+                    <div className="m3-expanded:sticky m3-expanded:top-0">
+                      <SettingsSection title={s.editor.projectCover}>
+                        <div className="relative aspect-[4/3] overflow-hidden rounded-[var(--radius-control)] border border-border-subtle bg-surface-muted">
+                          {coverAsset ? (
+                            <img
+                              alt={s.editor.selectedCover}
+                              className="h-full w-full object-cover"
+                              src={coverAsset.url}
+                            />
+                          ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-3 pb-12 text-copy-secondary">
+                              <ImageIcon className="size-9" />
+                              <span className="type-label">
+                                {s.editor.noCover}
+                              </span>
+                            </div>
+                          )}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-action-ink/85 to-transparent px-4 pb-4 pt-10 text-on-dark">
+                            <p className="line-clamp-2 break-words type-label font-semibold">
+                              {title.trim() || s.editor.untitled}
+                            </p>
+                            <p className="mt-0.5 type-metadata text-on-dark/80">
+                              {s.editor.coverPreview}
+                            </p>
                           </div>
-                        )}
-                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-action-ink/85 to-transparent px-5 pb-5 pt-12 text-on-dark">
-                          <p className="break-words type-card-title font-semibold">
-                            {title.trim() || s.editor.untitled}
-                          </p>
-                          <p className="mt-1 type-metadata text-on-dark/80">
-                            {s.editor.coverPreview}
-                          </p>
                         </div>
-                        <button
-                          aria-label={
-                            coverAsset && coverKey
-                              ? s.editor.changeCover
-                              : s.editor.uploadCover
-                          }
-                          className="absolute right-3 top-3 flex items-center gap-2 rounded-[var(--radius-pill)] bg-surface-raised/95 px-3 py-2 type-metadata font-medium text-copy shadow-[var(--shadow-control)] backdrop-blur-sm transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
+                        <Button
+                          className="min-h-12 w-full rounded-[var(--radius-control)] px-4 type-label"
                           onClick={() => coverInput.current?.click()}
-                          type="button"
+                          variant="outline"
                         >
-                          <Pencil className="size-3.5" />
+                          <ImagePlus className="size-4" />
                           {coverAsset && coverKey
                             ? s.editor.changeCover
                             : s.editor.uploadCover}
-                        </button>
-                      </div>
-                      <p className="type-metadata leading-relaxed text-copy-secondary">
-                        {s.editor.coverHelp}
-                      </p>
-                    </section>
-                    <div className="min-w-0 space-y-5">
-                      <section className="space-y-6 rounded-[var(--radius-control)] border border-border-subtle bg-surface p-[var(--card-padding)]">
-                        <h3 className="type-metadata font-semibold uppercase tracking-wider text-copy-secondary">
-                          {s.editor.projectInformation}
-                        </h3>
+                        </Button>
+                        <p className="type-metadata leading-relaxed text-copy-secondary">
+                          {s.editor.coverHelp}
+                        </p>
+                      </SettingsSection>
+                    </div>
+
+                    <div className="min-w-0 space-y-[var(--grid-gap)]">
+                      <SettingsSection title={s.editor.projectInformation}>
                         <div className="space-y-2">
                           <Label htmlFor="project-title">
                             {s.editor.projectTitle}{" "}
-                            <span className="text-copy-secondary">
+                            <span className="font-normal text-copy-secondary">
                               ({s.editor.required})
                             </span>
                           </Label>
                           <Input
-                            required
+                            className={SETTINGS_FIELD_CLASS}
                             id="project-title"
                             maxLength={160}
                             onChange={(event) => setTitle(event.target.value)}
                             placeholder={s.editor.titlePlaceholder}
+                            required
                             value={title}
                           />
                           <p className="type-metadata text-copy-secondary">
@@ -2273,10 +2591,18 @@ export function CreateProjectWizard({
                             value={visibility}
                           >
                             <SelectTrigger
+                              className={cn(SETTINGS_FIELD_CLASS, "w-full")}
                               id="project-visibility"
-                              className="w-full"
                             >
-                              <SelectValue />
+                              {/* SelectValue base-ui tidak membaca label dari
+                                  SelectItem — tanpa ini tampil "public". */}
+                              <SelectValue>
+                                {(value: ProjectVisibility) =>
+                                  value === "unlisted"
+                                    ? s.editor.unlisted
+                                    : s.editor.public
+                                }
+                              </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="public">
@@ -2294,17 +2620,13 @@ export function CreateProjectWizard({
                             {s.editor.draftNote}
                           </p>
                         </div>
-                      </section>
-                      <section className="space-y-4 rounded-[var(--radius-control)] border border-border-subtle bg-surface p-[var(--card-padding)]">
-                        <div>
-                          <h3 className="type-label font-semibold">
-                            {s.editor.socialProfiles}
-                          </h3>
-                          <p className="mt-1 type-metadata leading-relaxed text-copy-secondary">
-                            {s.editor.socialProfilesHelp}
-                          </p>
-                        </div>
-                        <div className="space-y-3">
+                      </SettingsSection>
+
+                      <SettingsSection title={s.editor.socialProfiles}>
+                        <p className="type-metadata leading-relaxed text-copy-secondary">
+                          {s.editor.socialProfilesHelp}
+                        </p>
+                        <div className="space-y-2">
                           {(["instagram", "linkedin", "github"] as const).map(
                             (platform) => {
                               const profileUrl = profileSocials[platform];
@@ -2313,9 +2635,12 @@ export function CreateProjectWizard({
                               return (
                                 <label
                                   className={cn(
-                                    "flex min-h-12 items-center gap-3 rounded-[var(--radius-control)] border border-border-strong bg-surface-raised p-3",
-                                    !profileUrl &&
-                                      "cursor-not-allowed border-border-subtle bg-surface-muted text-copy-disabled",
+                                    "flex min-h-12 items-center gap-3 rounded-[var(--radius-control)] border px-4 py-2.5 transition-colors",
+                                    !profileUrl
+                                      ? "cursor-not-allowed border-border-subtle bg-surface-muted text-copy-disabled"
+                                      : checked
+                                        ? "border-brand/60 bg-brand/5"
+                                        : "border-border-subtle hover:bg-surface-muted",
                                   )}
                                   key={platform}
                                 >
@@ -2346,102 +2671,100 @@ export function CreateProjectWizard({
                             },
                           )}
                         </div>
-                      </section>
-                      <details
-                        open
-                        className="rounded-[var(--radius-control)] border border-border-subtle bg-surface p-[var(--card-padding)]"
+                      </SettingsSection>
+
+                      <SettingsSection
+                        title={`${s.editor.collaborators} (${collaborators.length})`}
                       >
-                        <summary className="cursor-pointer type-label font-semibold">
-                          {s.editor.collaborators}{" "}
-                          <span className="font-normal text-copy-secondary">
-                            ({collaborators.length})
-                          </span>
-                        </summary>
-                        <p className="mt-3 type-metadata leading-relaxed text-copy-secondary">
+                        <p className="type-metadata leading-relaxed text-copy-secondary">
                           {s.editor.collaboratorsHelp}
                         </p>
-                        <div className="mt-4 space-y-3">
-                          <Label htmlFor="collaborator-user-id">
-                            {s.editor.userId}
+                        <div className="space-y-2">
+                          <Label htmlFor="collaborator-search">
+                            {s.editor.collaboratorSearch}
                           </Label>
-                          <Input
-                            id="collaborator-user-id"
-                            onChange={(event) =>
-                              setCollaboratorId(event.target.value)
-                            }
-                            placeholder={s.editor.userIdPlaceholder}
-                            value={collaboratorId}
-                          />
-                          <Label htmlFor="collaborator-role">
-                            {s.editor.role}
-                          </Label>
-                          <Input
-                            id="collaborator-role"
-                            onChange={(event) =>
-                              setCollaboratorRole(event.target.value)
-                            }
-                            placeholder={s.editor.rolePlaceholder}
-                            value={collaboratorRole}
-                          />
-                          <Button
-                            className="min-h-12 w-full rounded-[var(--radius-control)] type-label"
-                            onClick={() => {
-                              if (
-                                !collaboratorId.trim() ||
-                                !collaboratorRole.trim()
-                              )
-                                return toast.error(
-                                  s.editor.collaboratorRequired,
-                                );
-                              if (
-                                collaborators.some(
-                                  (item) =>
-                                    item.userId === collaboratorId.trim(),
-                                )
-                              )
-                                return toast.error(
-                                  s.editor.collaboratorDuplicate,
-                                );
-                              setCollaborators((items) => [
-                                ...items,
-                                {
-                                  userId: collaboratorId.trim(),
-                                  role: collaboratorRole.trim(),
-                                },
-                              ]);
-                              setCollaboratorId("");
-                              setCollaboratorRole("");
+                          <CollaboratorPicker
+                            copy={{
+                              search: s.editor.collaboratorSearch,
+                              placeholder: s.editor.collaboratorSearchPlaceholder,
+                              help: s.editor.collaboratorSearchHelp,
+                              searching: s.editor.collaboratorSearching,
+                              noResults: s.editor.collaboratorNoResults,
+                              addId: s.editor.collaboratorAddId,
                             }}
-                            variant="outline"
-                          >
-                            {s.editor.addCollaborator}
-                          </Button>
-                          {collaborators.map((item) => (
-                            <div
-                              className="flex min-h-12 items-center justify-between rounded-[var(--radius-control)] border border-border-subtle bg-surface-raised pl-3 type-metadata"
-                              key={item.userId}
-                            >
-                              <span className="min-w-0 truncate">
-                                {item.role}: {item.userId}
-                              </span>
-                              <button
-                                aria-label={s.editor.removeCollaborator}
-                                className="flex size-12 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
-                                onClick={() =>
-                                  setCollaborators((items) =>
-                                    items.filter(
-                                      (entry) => entry.userId !== item.userId,
-                                    ),
-                                  )
-                                }
-                                type="button"
-                              >
-                                <X className="size-4" />
-                              </button>
-                            </div>
-                          ))}
+                            excludeIds={[
+                              currentUserId,
+                              ...collaborators.map((item) => item.userId),
+                            ]}
+                            inputId="collaborator-search"
+                            onSelect={addCollaborator}
+                          />
                         </div>
-                      </details>
+                        {collaborators.length ? (
+                          <div className="space-y-2">
+                            {collaborators.map((item) => {
+                              const profile = collaboratorProfiles[item.userId];
+                              const name = profile
+                                ? creatorDisplayName(profile)
+                                : s.editor.collaboratorUnknown;
+                              return (
+                                <div
+                                  className="flex flex-col gap-3 rounded-[var(--radius-control)] border border-border-subtle p-3 m3-medium:flex-row m3-medium:items-center"
+                                  key={item.userId}
+                                >
+                                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                                    <CreatorAvatar creator={profile} />
+                                    <span className="min-w-0">
+                                      <span className="block truncate type-label font-semibold">
+                                        {name}
+                                      </span>
+                                      <span className="block truncate type-metadata text-copy-secondary">
+                                        {profile?.headline || item.userId}
+                                      </span>
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      aria-label={`${s.editor.role}: ${name}`}
+                                      className={cn(
+                                        SETTINGS_FIELD_CLASS,
+                                        "m3-medium:w-56",
+                                      )}
+                                      maxLength={255}
+                                      onChange={(event) =>
+                                        setCollaborators((items) =>
+                                          items.map((entry) =>
+                                            entry.userId === item.userId
+                                              ? { ...entry, role: event.target.value }
+                                              : entry,
+                                          ),
+                                        )
+                                      }
+                                      placeholder={s.editor.rolePlaceholder}
+                                      value={item.role}
+                                    />
+                                    <button
+                                      aria-label={`${s.editor.removeCollaborator}: ${name}`}
+                                      className="flex size-12 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-danger hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
+                                      onClick={() =>
+                                        setCollaborators((items) =>
+                                          items.filter(
+                                            (entry) =>
+                                              entry.userId !== item.userId,
+                                          ),
+                                        )
+                                      }
+                                      type="button"
+                                    >
+                                      <X className="size-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </SettingsSection>
                     </div>
                   </div>
                 </div>
@@ -2459,18 +2782,14 @@ export function CreateProjectWizard({
                     onClick={() => void save(false)}
                     variant="outline"
                   >
-                    {submitIntent === "draft"
-                      ? s.editor.saving
-                      : s.editor.saveDraft}
+                    {draftLabel}
                   </Button>
                   <Button
-                    className="min-h-12 rounded-[var(--radius-control)] bg-success px-4 type-label text-on-brand hover:bg-success/90"
+                    className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
                     disabled={submitting}
                     onClick={() => void save(true)}
                   >
-                    {submitIntent === "publish"
-                      ? s.editor.publishing
-                      : s.editor.publish}
+                    {publishLabel}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -2627,8 +2946,12 @@ export function CreateProjectWizard({
             <DialogTitle>{s.editor.embedTitle}</DialogTitle>
             <DialogDescription>{s.editor.embedDescription}</DialogDescription>
           </DialogHeader>
+          {/* noValidate + type="text": validasi bawaan type="url" menolak
+              tautan tanpa "https://" secara diam-diam (tombol Embed terlihat
+              tidak berfungsi). Validasi & normalisasi dilakukan submitEmbed. */}
           <form
             className="space-y-2"
+            noValidate
             onSubmit={(event) => {
               event.preventDefault();
               submitEmbed();
@@ -2637,8 +2960,13 @@ export function CreateProjectWizard({
             <Label htmlFor="embed-url">{s.editor.embedUrl}</Label>
             <Input
               aria-invalid={embedDialog?.invalid}
+              autoCapitalize="none"
+              autoComplete="off"
               autoFocus
+              className="min-h-12 rounded-[var(--radius-control)] px-4 type-body"
               id="embed-url"
+              inputMode="url"
+              spellCheck={false}
               onChange={(event) =>
                 setEmbedDialog((current) =>
                   current
@@ -2647,7 +2975,7 @@ export function CreateProjectWizard({
                 )
               }
               placeholder={s.editor.embedPlaceholder}
-              type="url"
+              type="text"
               value={embedDialog?.url ?? ""}
             />
             {embedDialog?.invalid ? (

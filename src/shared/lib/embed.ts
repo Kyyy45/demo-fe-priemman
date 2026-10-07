@@ -12,13 +12,54 @@ export interface EmbedSource {
 
 const ID = /^[\w-]+$/;
 
-function parse(value: string) {
+// Tautan yang ditempel creator sering tanpa skema ("youtube.com/watch?v=…")
+// atau masih http. Keduanya dinaikkan ke https; skema lain (javascript:,
+// data:, dll.) tetap ditolak.
+export function normalizeEmbedUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed)
+    ? trimmed.replace(/^http:\/\//i, "https://")
+    : `https://${trimmed.replace(/^\/+/, "")}`;
   try {
-    const url = new URL(value.trim());
-    return url.protocol === "https:" ? url : null;
+    const url = new URL(withScheme);
+    return url.protocol === "https:" ? url.toString() : null;
   } catch {
     return null;
   }
+}
+
+function parse(value: string) {
+  const normalized = normalizeEmbedUrl(value);
+  return normalized ? new URL(normalized) : null;
+}
+
+const YOUTUBE_HOSTS = new Set([
+  "youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "youtube-nocookie.com",
+]);
+const YOUTUBE_PATH_PREFIXES = new Set(["shorts", "live", "embed", "v"]);
+
+// `t`/`start` dari tautan YouTube ("90", "90s", "1m30s", "1h2m3s") →
+// detik untuk parameter `start` di player embed.
+function youtubeStartSeconds(url: URL) {
+  const raw = url.searchParams.get("t") ?? url.searchParams.get("start");
+  if (!raw) return 0;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (!match) return 0;
+  const [, hours = "0", minutes = "0", seconds = "0"] = match;
+  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+}
+
+function youtubeSource(id: string, url: URL): EmbedSource {
+  const start = youtubeStartSeconds(url);
+  return {
+    src: `https://www.youtube-nocookie.com/embed/${id}${start ? `?start=${start}` : ""}`,
+    kind: "video",
+  };
 }
 
 export function toEmbedSource(value: string): EmbedSource | null {
@@ -27,19 +68,16 @@ export function toEmbedSource(value: string): EmbedSource | null {
   const host = url.hostname.replace(/^www\./, "");
   const parts = url.pathname.split("/").filter(Boolean);
 
-  if (host === "youtube.com" || host === "m.youtube.com") {
+  if (YOUTUBE_HOSTS.has(host)) {
+    // watch?v=ID, /shorts/ID, /live/ID, /embed/ID, /v/ID
     const id =
       url.searchParams.get("v") ??
-      (parts[0] === "shorts" || parts[0] === "embed" ? parts[1] : null);
-    return id && ID.test(id)
-      ? { src: `https://www.youtube-nocookie.com/embed/${id}`, kind: "video" }
-      : null;
+      (YOUTUBE_PATH_PREFIXES.has(parts[0] ?? "") ? parts[1] : null);
+    return id && ID.test(id) ? youtubeSource(id, url) : null;
   }
   if (host === "youtu.be") {
     const id = parts[0];
-    return id && ID.test(id)
-      ? { src: `https://www.youtube-nocookie.com/embed/${id}`, kind: "video" }
-      : null;
+    return id && ID.test(id) ? youtubeSource(id, url) : null;
   }
   if (host === "vimeo.com") {
     const id = parts.find((part) => /^\d+$/.test(part));
@@ -78,11 +116,14 @@ export function toEmbedSource(value: string): EmbedSource | null {
       kind: "design",
     };
   }
-  if (host === "codepen.io" && parts[1] === "pen" && parts[2]) {
-    const [user, , id] = parts;
-    return ID.test(user) && ID.test(id)
+  if (host === "codepen.io") {
+    // Pen pribadi: /<user>/pen/<id>; pen tim: /team/<team>/pen/<id>.
+    const team = parts[0] === "team";
+    const [owner, marker, id] = team ? parts.slice(1) : parts;
+    if (marker !== "pen" || !owner || !id) return null;
+    return ID.test(owner) && ID.test(id)
       ? {
-          src: `https://codepen.io/${user}/embed/${id}?default-tab=result`,
+          src: `https://codepen.io/${team ? "team/" : ""}${owner}/embed/${id}?default-tab=result`,
           kind: "design",
         }
       : null;

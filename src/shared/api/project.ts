@@ -13,6 +13,7 @@ import type {
   ListProjectsResult,
   Project,
   ProjectInput,
+  ProjectStatus,
 } from "@/shared/lib/types/project";
 
 // Alur Project mengikuti kontrak backend: list/get membaca data, create dan
@@ -20,6 +21,26 @@ import type {
 // Ownership tetap divalidasi backend; helper ini hanya menjaga guard UI.
 export function isProjectOwnedBy(project: Project, userId: string) {
   return project.ownerId === userId;
+}
+
+// PUT /v1/projects/{id} mengganti SELURUH ProjectInput (tags, media,
+// collaborators ikut di-replace), jadi perubahan status saja (arsip/pulihkan)
+// tetap harus mengirim ulang semua field project apa adanya.
+export function projectInputFromProject(
+  project: Project,
+  overrides: Partial<ProjectInput> = {},
+): ProjectInput {
+  return {
+    title: project.title,
+    tags: project.tags,
+    media: project.media,
+    collaborators: project.collaborators,
+    visibility: project.visibility,
+    status: project.status,
+    coverMediaId: project.coverMediaId,
+    content: project.content,
+    ...overrides,
+  };
 }
 
 export const projectService = {
@@ -55,6 +76,36 @@ export const projectService = {
     );
 
     return parseProjectListResponse(bytes);
+  },
+
+  // Semua project milik session aktif. Backend (ListByOwner) memfilter
+  // `p.status = ?` apa adanya, jadi tanpa `status` hasilnya selalu kosong
+  // walau proto menyebut UNSPECIFIED = semua. Karena itu tiap ProjectStatus
+  // diminta terpisah, halaman diikuti lewat page_token, lalu digabung.
+  async listOwned(
+    statuses: ReadonlyArray<Exclude<ProjectStatus, "unspecified">> = [
+      "draft",
+      "published",
+      "archived",
+    ],
+  ) {
+    const MAX_PAGES = 20;
+    const pages = await Promise.all(
+      statuses.map(async (status) => {
+        const projects: Project[] = [];
+        let pageToken = "";
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const result = await this.list({ status, pageSize: 50, pageToken });
+          projects.push(...result.projects);
+          if (!result.nextPageToken) break;
+          pageToken = result.nextPageToken;
+        }
+        return projects;
+      }),
+    );
+    return pages
+      .flat()
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   },
 
   async get(id: string, anonymous = false) {

@@ -84,7 +84,14 @@ export function parseStoredContent(project: Project | null) {
       if (block.type === "photoGrid")
         return [{ id: block.id, type: "grid", assetKeys: block.mediaIds }];
       if (block.type === "embed")
-        return [{ id: block.id, type: "embed", url: block.url }];
+        return [
+          {
+            id: block.id,
+            type: "embed",
+            url: block.url,
+            width: block.width ?? "inset",
+          },
+        ];
       return [
         {
           id: block.id,
@@ -124,7 +131,12 @@ export function toStoredBlocks(
   return blocks.map((block) => {
     if (block.type === "text") return block;
     if (block.type === "embed")
-      return { id: block.id, type: "embed", url: block.url };
+      return {
+        id: block.id,
+        type: "embed",
+        url: block.url,
+        width: block.width === "full" ? "full" : "inset",
+      };
     if (block.type === "grid")
       return {
         id: block.id,

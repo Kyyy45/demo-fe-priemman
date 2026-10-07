@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 import type { Project } from "@/shared/lib/types/explore";
+import { sameTag } from "@/shared/lib/tags";
 
 import { ProjectDetailBody } from "./project-detail/project-detail-body";
 import {
@@ -65,7 +66,7 @@ export function ProjectDetailOverlay({
             .filter(
               (item) =>
                 item.id !== project.id &&
-                item.primaryTag === project.primaryTag,
+                sameTag(item.primaryTag, project.primaryTag),
             )
             .slice(0, 3)
         : [],

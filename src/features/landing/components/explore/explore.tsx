@@ -14,6 +14,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { projectService } from "@/shared/api/project";
 import { toExploreProject } from "@/shared/api/mappers/explore-project";
 import { useProjectFeed } from "@/features/landing/hooks/use-project-feed";
+import { sameTag, uniqueTags } from "@/shared/lib/tags";
 import { authService, projectActionService } from "@/shared/api";
 
 // Waktu acuan untuk menghitung umur project
@@ -173,7 +174,7 @@ export function Explore({
   const projects = useMemo(() => {
     const list: Project[] = apiProjects
       .map((item) => toExploreProject(item, PROJECT_AGE_REFERENCE))
-      .filter((item) => !tag || item.tags.includes(tag));
+      .filter((item) => !tag || item.tags.some((value) => sameTag(value, tag)));
     list.sort((left, right) =>
       sort === "latest"
         ? left.ageDays - right.ageDays
@@ -183,14 +184,7 @@ export function Explore({
   }, [apiProjects, tag, sort, limit]);
 
   const availableTags = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          apiProjects.flatMap((project) =>
-            project.tags.map((tag) => tag.trim()).filter(Boolean),
-          ),
-        ),
-      ).sort((left, right) => left.localeCompare(right)),
+    () => uniqueTags(apiProjects.map((project) => project.tags)),
     [apiProjects],
   );
 

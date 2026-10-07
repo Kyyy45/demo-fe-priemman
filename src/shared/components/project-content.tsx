@@ -40,6 +40,8 @@ export const CANVAS_BOTTOM_PADDING_CLASS = "pb-[clamp(32px,6vw,88px)]";
 function isFullBleed(block: StoredBlock | undefined) {
   if (!block) return false;
   if (block.type === "photoGrid") return true;
+  // Embed lama tanpa width = inset; gambar/video lama tanpa width = full.
+  if (block.type === "embed") return block.width === "full";
   return (
     (block.type === "image" || block.type === "video") &&
     block.width !== "inset"
@@ -50,8 +52,11 @@ function isFullBleed(block: StoredBlock | undefined) {
 // sama dengan nilai awal toolbar (Helvetica 20px); heading perlu ukuran
 // eksplisit karena reset Tailwind membuat <h1>/<h2> seukuran teks biasa.
 // Ukuran/font per-teks dari toolbar (inline style/<font>) tetap menang.
+// h1/h2 wajib text-inherit: globals.css memberi semua heading warna tema
+// (--text-heading, hampir putih di dark mode), yang akan menimpa warna
+// kontras canvas dan membuat heading tak terbaca di canvas terang.
 export const RICH_TEXT_CLASS =
-  "break-words text-[20px] leading-[1.45] [font-family:Helvetica,Arial,sans-serif] [&_h1]:text-[2em] [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:text-[1.4em] [&_h2]:font-semibold [&_h2]:leading-snug [&_p[data-style=caption]]:text-[0.7em] [&_p[data-style=caption]]:opacity-75 [&_a]:underline";
+  "break-words text-[20px] leading-[1.45] [font-family:Helvetica,Arial,sans-serif] [&_h1]:text-inherit [&_h2]:text-inherit [&_h1]:text-[2em] [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:text-[1.4em] [&_h2]:font-semibold [&_h2]:leading-snug [&_p[data-style=caption]]:text-[0.7em] [&_p[data-style=caption]]:opacity-75 [&_a]:underline";
 
 // Rasio ada di sel (bukan di <img>) supaya sel yang dibentang 2 kolom bisa
 // memakai rasio 8:3 dan tingginya tetap sama dengan baris lain.
@@ -195,7 +200,10 @@ export function ProjectContent({
             if (!source) return null;
             return (
               <div
-                className="w-full px-6 m3-medium:px-12 m3-large:px-[88px]"
+                className={cn(
+                  "mx-auto",
+                  block.width === "full" ? "w-full" : MEDIA_INSET_CLASS,
+                )}
                 key={key}
                 style={{ marginTop }}
               >
@@ -203,7 +211,7 @@ export function ProjectContent({
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   allowFullScreen
                   className={cn(
-                    "mx-auto block w-full max-w-[1040px] border-0",
+                    "block w-full border-0",
                     EMBED_FRAME_CLASS[source.kind],
                   )}
                   loading="lazy"

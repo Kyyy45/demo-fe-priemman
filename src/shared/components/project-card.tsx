@@ -62,9 +62,21 @@ export function ProjectCard({
         <CutoutCardOverlay />
 
         {/* Category Label */}
+        {/* Tag pertama = kategori utama; sisanya diringkas jadi "+N" dan
+            daftarnya ada di tooltip (lengkapnya di modal detail proyek). */}
         <CutoutCardInsetLabel className="bottom-0 left-0 rounded-tr-[20px] bg-surface-raised px-4 py-2">
-          <span className="type-metadata font-semibold uppercase tracking-widest text-copy-muted">
-            {project.primaryTag || "Project"}
+          <span
+            className="flex items-center gap-1.5 type-metadata font-semibold uppercase tracking-widest text-copy-muted"
+            title={project.tags.length > 1 ? project.tags.join(", ") : undefined}
+          >
+            <span className="max-w-[12rem] truncate">
+              {project.primaryTag || "Project"}
+            </span>
+            {project.tags.length > 1 ? (
+              <span className="rounded-full bg-surface-muted px-1.5 py-0.5 tracking-normal text-copy-secondary">
+                +{project.tags.length - 1}
+              </span>
+            ) : null}
           </span>
           <CutoutCorner className="absolute -bottom-px -right-[31px] rotate-90 text-surface-raised" />
           <CutoutCorner className="absolute -left-px -top-[31px] rotate-90 text-surface-raised" />

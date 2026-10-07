@@ -32,6 +32,7 @@ export type EmbedBlock = {
   id: string;
   type: "embed";
   url: string;
+  width: "inset" | "full";
 };
 export type EditorBlock = TextBlock | MediaBlock | GridBlock | EmbedBlock;
 export type EditorAsset = {
@@ -56,7 +57,8 @@ export type StoredBlock =
       width?: "inset" | "full";
     }
   | { id: string; type: "photoGrid"; layout: string; mediaIds: string[] }
-  | { id: string; type: "embed"; url: string };
+  // width tidak ada pada embed lama → dianggap "inset" (tampilan semula).
+  | { id: string; type: "embed"; url: string; width?: "inset" | "full" };
 export interface StoredContent {
   version: 1;
   editor: "priemman-blocks";

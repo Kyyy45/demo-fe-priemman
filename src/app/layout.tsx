@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Yeseva_One, Manrope, Lora, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/shared/lib/utils";
+import { Toaster } from "@/shared/ui/sonner";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 import { ThemeProvider } from "@/shared/providers/theme-provider";
 import { LanguageProvider } from "@/shared/providers/language-provider";
@@ -62,6 +63,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <LanguageProvider>
             <TooltipProvider>{children}</TooltipProvider>
+            {/* Satu Toaster untuk seluruh app — tanpa ini semua toast()
+                (error simpan, file terlalu besar, dll.) tidak pernah tampil. */}
+            <Toaster />
           </LanguageProvider>
         </ThemeProvider>
       </body>

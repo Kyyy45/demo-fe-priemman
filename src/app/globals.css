@@ -740,6 +740,16 @@
   font-family: var(--font-yeseva), serif;
 }
 
+/* Dialog, alert dialog, sheet, drawer, dropdown, dan tooltip di-render lewat
+   Portal langsung di <body> — di luar .dashboard-manrope, jadi aturan di atas
+   tidak sampai ke sana dan judulnya jatuh ke Yeseva. Selama halaman dashboard
+   tampil, samakan juga font portal tersebut (serta headline detail project
+   yang dibuka dari Creator Studio). Yeseva tetap hanya untuk wordmark logo. */
+body:has(.dashboard-manrope) .font-heading:not(.dashboard-logo-wordmark),
+body:has(.dashboard-manrope) :is(.m3-headline-large, .m3-headline-small) {
+  font-family: var(--font-manrope), sans-serif;
+}
+
 /* Role tipografi dashboard mengikuti skala data-dense pada DESIGN.md. */
 .dashboard-manrope .dashboard-page-title {
   color: var(--text-heading);
