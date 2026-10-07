@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ArrowUpRight, Eye, Heart } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 
@@ -26,6 +27,10 @@ interface ProjectCardProps {
   onLike?: () => void;
   onOpen: () => void;
   likeAria: string;
+  /** Teks label sudut kiri bawah; default tag utama (Creator Studio: status). */
+  label?: string;
+  /** Aksi tambahan di footer (mis. menu pemilik di Creator Studio). */
+  actions?: ReactNode;
 }
 
 // Menyingkat angka besar agar mudah dibaca pada card
@@ -41,6 +46,8 @@ export function ProjectCard({
   onLike,
   onOpen,
   likeAria,
+  label,
+  actions,
 }: ProjectCardProps) {
   const stagger = useCutoutContentStaggerVariants();
   return (
@@ -54,11 +61,20 @@ export function ProjectCard({
       onClick={onOpen}
     >
       <CutoutCardMedia className="aspect-[4/3]">
-        <CutoutCardImage
-          alt={project.title}
-          loading="lazy"
-          src={project.image}
-        />
+        {project.image ? (
+          <CutoutCardImage
+            alt={project.title}
+            loading="lazy"
+            src={project.image}
+          />
+        ) : (
+          // Draf tanpa media belum punya sampul; next/image menolak src kosong.
+          <div
+            aria-label={`${project.title} cover placeholder`}
+            className="h-full w-full bg-surface-container-high"
+            role="img"
+          />
+        )}
         <CutoutCardOverlay />
 
         {/* Category Label */}
@@ -70,9 +86,9 @@ export function ProjectCard({
             title={project.tags.length > 1 ? project.tags.join(", ") : undefined}
           >
             <span className="max-w-[12rem] truncate">
-              {project.primaryTag || "Project"}
+              {label ?? (project.primaryTag || "Project")}
             </span>
-            {project.tags.length > 1 ? (
+            {!label && project.tags.length > 1 ? (
               <span className="rounded-full bg-surface-muted px-1.5 py-0.5 tracking-normal text-copy-secondary">
                 +{project.tags.length - 1}
               </span>
@@ -174,6 +190,17 @@ export function ProjectCard({
                   <Eye className="size-4" weight="regular" />
                   {formatCount(project.views)}
                 </span>
+                {actions ? (
+                  // Menu di dalam kartu: klik (termasuk dari popup portal,
+                  // yang tetap bubble lewat pohon React) tidak membuka kartu.
+                  <span
+                    className="flex"
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    {actions}
+                  </span>
+                ) : null}
               </span>
             </CutoutCardFooter>
           </motion.div>

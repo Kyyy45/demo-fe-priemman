@@ -401,6 +401,7 @@ export const translations = {
           delete: "Delete project",
           archive: "Archive project",
           restore: "Move back to drafts",
+          menu: "Project actions",
         },
         collections: {
           title: "Collections",
@@ -1355,6 +1356,7 @@ export const translations = {
           delete: "Hapus proyek",
           archive: "Arsipkan proyek",
           restore: "Kembalikan ke draf",
+          menu: "Aksi proyek",
         },
         collections: {
           title: "Koleksi",

@@ -4,14 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
   ArchiveRestore,
-  Bookmark,
-  Eye,
-  Heart,
+  MoreHorizontal,
   Pencil,
   Trash2,
 } from "lucide-react";
-import { ArrowUpRight } from "@phosphor-icons/react";
 import { Button } from "@/shared/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -23,9 +26,8 @@ import {
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useLanguage } from "@/shared/providers/language-provider";
-import { cn } from "@/shared/lib/utils";
 import { CreateProjectWizard } from "@/features/dashboard-creator/components/creator-studio/create";
-import { ProjectDetailOverlay as ExploreProjectDetailOverlay } from "@/shared/components/project-detail-overlay";
+import { ProjectCard } from "@/shared/components/project-card";
 import type { Project as ExploreProject } from "@/shared/lib/types/explore";
 import { toast } from "sonner";
 import {
@@ -37,19 +39,6 @@ import {
 import { creatorStudioErrorMessage } from "./api-errors";
 import { DashboardBanner } from "@/shared/layout/dashboard/dashboard-banner";
 import type { Project as ApiProject } from "@/shared/lib/types/project";
-import {
-  CutoutCard,
-  CutoutCardAction,
-  CutoutCardContent,
-  CutoutCardFooter,
-  CutoutCardImage,
-  CutoutCardInsetLabel,
-  CutoutCardMedia,
-  CutoutCardOverlay,
-  CutoutCardPin,
-  CutoutCorner,
-  cutoutCardSurfaceClassName,
-} from "@/shared/ui/cutout-card";
 
 // Mengikuti enum ProjectStatus di project.proto (tanpa UNSPECIFIED).
 type ProjectStatus = "published" | "draft" | "archived";
@@ -172,98 +161,68 @@ function toExploreProject(project: StudioProject): ExploreProject {
   };
 }
 
-function ProjectCard({
-  project,
-  onOpen,
-  statusLabel,
+// Menu pemilik di footer kartu (Edit / Arsip atau Pulihkan / Hapus).
+// Kartu sendiri membuka halaman publik di tab baru, jadi aksi ini
+// tidak lagi berada di overlay pratinjau.
+function ProjectActionsMenu({
+  archived,
+  disabled,
+  labels,
+  onDelete,
+  onEdit,
+  onToggleArchive,
 }: {
-  project: StudioProject;
-  onOpen: (project: StudioProject) => void;
-  statusLabel: string;
+  archived: boolean;
+  disabled: boolean;
+  labels: {
+    menu: string;
+    edit: string;
+    archive: string;
+    restore: string;
+    delete: string;
+  };
+  onDelete: () => void;
+  onEdit: () => void;
+  onToggleArchive: () => void;
 }) {
   return (
-    <button
-      className="block h-full w-full rounded-[var(--radius-feature)] text-left outline-none focus-visible:ring-3 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-      onClick={() => onOpen(project)}
-      type="button"
-    >
-      <CutoutCard
-        className={cn("group flex h-full flex-col", cutoutCardSurfaceClassName)}
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger
+        render={
+          <button
+            aria-label={labels.menu}
+            className="flex min-h-12 min-w-12 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-surface-muted hover:text-heading focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand disabled:pointer-events-none disabled:opacity-50"
+            disabled={disabled}
+            title={labels.menu}
+            type="button"
+          />
+        }
       >
-        <CutoutCardMedia className="aspect-[4/3]">
-          {project.cover ? (
-            <CutoutCardImage
-              alt={`${project.title} cover`}
-              src={project.cover}
-            />
+        <MoreHorizontal className="size-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-48 p-1" sideOffset={6}>
+        <DropdownMenuItem className="h-10 gap-2 px-3" onClick={onEdit}>
+          <Pencil className="size-4" />
+          {labels.edit}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="h-10 gap-2 px-3" onClick={onToggleArchive}>
+          {archived ? (
+            <ArchiveRestore className="size-4" />
           ) : (
-            <div
-              aria-label={`${project.title} cover placeholder`}
-              className="h-full w-full bg-surface-container-high"
-              role="img"
-            />
+            <Archive className="size-4" />
           )}
-          <CutoutCardOverlay />
-          <CutoutCardInsetLabel className="bottom-0 left-0 rounded-tr-[20px] bg-surface-container px-4 py-2">
-            <span className="m3-label-small uppercase text-copy-muted">
-              {statusLabel}
-            </span>
-            <CutoutCorner className="absolute -right-[31px] -bottom-px rotate-90 text-surface-container" />
-            <CutoutCorner className="absolute -top-[31px] -left-px rotate-90 text-surface-container" />
-          </CutoutCardInsetLabel>
-
-          <CutoutCardPin className="top-0 right-0 rounded-bl-[20px] bg-surface-container p-1.5">
-            <CutoutCardAction
-              revealOnHover={false}
-              className="relative static transform-none opacity-100"
-            >
-              <span
-                aria-hidden="true"
-                className="flex size-9 items-center justify-center rounded-full bg-action-ink text-on-dark shadow-[var(--shadow-control)]"
-              >
-                <ArrowUpRight
-                  className="icon-motion-arrow-up-right size-4"
-                  weight="bold"
-                />
-              </span>
-            </CutoutCardAction>
-            <CutoutCorner
-              className="absolute top-0 -left-[31px] -rotate-90 text-surface-container"
-              size={32}
-            />
-            <CutoutCorner
-              className="absolute right-0 -bottom-[31px] -rotate-90 text-surface-container"
-              size={32}
-            />
-          </CutoutCardPin>
-        </CutoutCardMedia>
-
-        <CutoutCardContent className="flex flex-1 flex-col p-[var(--card-padding)]">
-          <h4 className="mb-1 line-clamp-1 type-card-title font-medium leading-snug text-copy">
-            {project.title}
-          </h4>
-          <p className="line-clamp-1 type-label text-copy-secondary">
-            {project.role}
-          </p>
-
-          {project.status === "published" ? (
-            <CutoutCardFooter className="mt-auto border-t border-border-subtle/80 pt-[var(--grid-gap)]">
-              <div className="flex items-center gap-3 type-metadata text-copy-muted">
-                <span className="flex items-center gap-1.5">
-                  <Eye className="h-4 w-4" /> {project.metrics.views}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Heart className="h-4 w-4" /> {project.metrics.likes}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Bookmark className="h-4 w-4" /> {project.metrics.saves}
-                </span>
-              </div>
-            </CutoutCardFooter>
-          ) : null}
-        </CutoutCardContent>
-      </CutoutCard>
-    </button>
+          {archived ? labels.restore : labels.archive}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="h-10 gap-2 px-3"
+          onClick={onDelete}
+          variant="destructive"
+        >
+          <Trash2 className="size-4" />
+          {labels.delete}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -274,9 +233,6 @@ export function CreatorStudio() {
 
   // Menyimpan daftar project dan project yang sedang diproses
   const [projects, setProjects] = useState<StudioProject[]>([]);
-  const [selectedProject, setSelectedProject] = useState<StudioProject | null>(
-    null,
-  );
   const [editProject, setEditProject] = useState<ApiProject | null>(null);
   const [ownerName, setOwnerName] = useState("Creator");
   const [ownerRole, setOwnerRole] = useState("Creator");
@@ -322,41 +278,6 @@ export function CreatorStudio() {
     };
   }, [locale, s.errors, s.feedback.loadError, s.status.notPublished]);
 
-  // Menyinkronkan project aktif dengan query parameter
-  useEffect(() => {
-    const synchronizeSelectedProject = () => {
-      const projectId = new URL(window.location.href).searchParams.get(
-        "project",
-      );
-      setSelectedProject(
-        projectId
-          ? (projects.find((project) => project.id === projectId) ?? null)
-          : null,
-      );
-    };
-
-    synchronizeSelectedProject();
-    window.addEventListener("popstate", synchronizeSelectedProject);
-    return () =>
-      window.removeEventListener("popstate", synchronizeSelectedProject);
-  }, [projects]);
-
-  // Menyimpan project aktif ke URL tanpa reload halaman
-  const updateProjectUrl = (
-    projectId: string | null,
-    method: "pushState" | "replaceState" = "pushState",
-  ) => {
-    const url = new URL(window.location.href);
-    if (projectId) url.searchParams.set("project", projectId);
-    else url.searchParams.delete("project");
-    window.history[method]({}, "", url);
-  };
-
-  const closeProject = () => {
-    setSelectedProject(null);
-    updateProjectUrl(null, "replaceState");
-  };
-
   // Mengelompokkan project berdasarkan status tab
   const projectGroups = useMemo(
     () => ({
@@ -391,35 +312,18 @@ export function CreatorStudio() {
         ? items.map((item) => (item.id === mapped.id ? mapped : item))
         : [mapped, ...items];
     });
-    setSelectedProject(mapped);
-    updateProjectUrl(mapped.id, "replaceState");
     setEditProject(null);
   };
 
-  // Membuka overlay lalu mengambil detail project terbaru
-  const openProject = async (project: StudioProject) => {
-    setSelectedProject(project);
-    if (
-      new URL(window.location.href).searchParams.get("project") !== project.id
-    ) {
-      updateProjectUrl(project.id);
-    }
-    try {
-      const detail = await projectService.get(project.id);
-      setSelectedProject(
-        toStudioProject(
-          detail,
-          ownerName,
-          ownerRole,
-          locale,
-          s.status.notPublished,
-        ),
-      );
-    } catch (error) {
-      toast.error(
-        creatorStudioErrorMessage(error, s.errors, s.feedback.refreshError),
-      );
-    }
+  // Kartu membuka halaman publik proyek di tab baru (tanpa pratinjau).
+  // Explore memuat proyek di luar feed langsung dari API, dan sesi pemilik
+  // ikut terkirim, jadi draf/unlisted milik sendiri juga bisa dibuka.
+  const openPublicProject = (project: StudioProject) => {
+    window.open(
+      `/explore?project=${encodeURIComponent(project.id)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   };
 
   // Arsip/pulihkan = PUT dengan ProjectInput lengkap dan status baru.
@@ -444,7 +348,6 @@ export function CreatorStudio() {
       setProjects((items) =>
         items.map((item) => (item.id === mapped.id ? mapped : item)),
       );
-      setSelectedProject(mapped);
       toast.success(
         status === "archived"
           ? s.feedback.archiveSuccess
@@ -466,7 +369,6 @@ export function CreatorStudio() {
       await projectService.delete(project.id);
       setProjects((items) => items.filter((item) => item.id !== project.id));
       setProjectPendingDelete(null);
-      closeProject();
       toast.success(s.feedback.deleteSuccess);
     } catch (error) {
       toast.error(
@@ -502,12 +404,31 @@ export function CreatorStudio() {
         </div>
       );
     }
+    // Kartu yang sama dengan Explore; label sudut = status proyek dan
+    // like dinonaktifkan (pemilik tidak menyukai proyeknya sendiri).
     return items.map((project) => (
       <ProjectCard
+        actions={
+          <ProjectActionsMenu
+            archived={project.status === "archived"}
+            disabled={changingStatus || deleting}
+            labels={s.actions}
+            onDelete={() => setProjectPendingDelete(project)}
+            onEdit={() => setEditProject(project.source)}
+            onToggleArchive={() =>
+              void changeStatus(
+                project,
+                project.status === "archived" ? "draft" : "archived",
+              )
+            }
+          />
+        }
+        interactive={false}
         key={project.id}
-        onOpen={(item) => void openProject(item)}
-        project={project}
-        statusLabel={statusLabel(project)}
+        label={statusLabel(project)}
+        likeAria={s.actions.edit}
+        onOpen={() => openPublicProject(project)}
+        project={toExploreProject(project)}
       />
     ));
   };
@@ -563,89 +484,6 @@ export function CreatorStudio() {
       </DialogContent>
     </Dialog>
   );
-
-  if (selectedProject) {
-    return (
-      <>
-        {deleteProjectDialog}
-        <ExploreProjectDetailOverlay
-          actionsDisabled
-          liked={false}
-          saved={false}
-          onClose={closeProject}
-          onLike={() => undefined}
-          onSave={() => undefined}
-          onSelect={(project) => {
-            const studioProject = projects.find(
-              (item) => item.id === project.id,
-            );
-            if (studioProject) void openProject(studioProject);
-          }}
-          ownerActions={
-            <>
-              <Button
-                aria-label={s.actions.edit}
-                onClick={() => {
-                  setEditProject(selectedProject.source);
-                  closeProject();
-                }}
-                size="icon"
-                variant="outline"
-              >
-                <Pencil className="size-4" />
-              </Button>
-              <Button
-                aria-label={
-                  selectedProject.status === "archived"
-                    ? s.actions.restore
-                    : s.actions.archive
-                }
-                disabled={changingStatus || deleting}
-                onClick={() =>
-                  void changeStatus(
-                    selectedProject,
-                    selectedProject.status === "archived" ? "draft" : "archived",
-                  )
-                }
-                size="icon"
-                title={
-                  selectedProject.status === "archived"
-                    ? s.actions.restore
-                    : s.actions.archive
-                }
-                variant="outline"
-              >
-                {selectedProject.status === "archived" ? (
-                  <ArchiveRestore className="size-4" />
-                ) : (
-                  <Archive className="size-4" />
-                )}
-              </Button>
-              <Button
-                aria-label={s.actions.delete}
-                disabled={changingStatus || deleting}
-                onClick={() => setProjectPendingDelete(selectedProject)}
-                size="icon"
-                variant="outline"
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            </>
-          }
-          project={toExploreProject(selectedProject)}
-          projects={projects.map(toExploreProject)}
-        />
-        <CreateProjectWizard
-          onOpenChange={(open) => {
-            if (!open) setEditProject(null);
-          }}
-          onSaved={saveProject}
-          open={Boolean(editProject)}
-          project={editProject}
-        />
-      </>
-    );
-  }
 
   return (
     // w-full min-w-0 overflow-x-clip — sama dengan wrapper ProjectLibrary.

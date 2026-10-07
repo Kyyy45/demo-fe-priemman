@@ -293,17 +293,57 @@ export function Explore({
 
   // Pada Explore dinamis, query adalah sumber kebenaran. Dengan begitu pergantian
   // URL langsung mengganti isi halaman tanpa menunggu state effect tersinkronkan.
+  const feedProject =
+    mode === "dynamic" && selectedProjectId
+      ? (projects.find((project) => project.id === selectedProjectId) ?? null)
+      : null;
+
+  // `?project=` di luar feed (lebih lama dari 50 terbaru, atau draf/unlisted
+  // milik sendiri yang dibuka dari Creator Studio) dimuat langsung dari API.
+  // Sesi ikut terkirim: backend mengizinkan pemilik melihat proyek non-publik,
+  // sedangkan pengunjung lain tetap hanya bisa membuka PUBLISHED + PUBLIC.
+  const [directProject, setDirectProject] = useState<{
+    id: string;
+    project: Project | null;
+  } | null>(null);
+  useEffect(() => {
+    if (mode !== "dynamic" || !selectedProjectId || isLoading || feedProject)
+      return;
+    let active = true;
+    projectService.get(selectedProjectId).then(
+      (project) => {
+        if (active)
+          setDirectProject({
+            id: selectedProjectId,
+            project: toExploreProject(project, PROJECT_AGE_REFERENCE),
+          });
+      },
+      () => {
+        if (active) setDirectProject({ id: selectedProjectId, project: null });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [feedProject, isLoading, mode, selectedProjectId]);
+
   const selectedProject =
     mode === "dynamic"
-      ? selectedProjectId
-        ? (projects.find((project) => project.id === selectedProjectId) ?? null)
-        : null
+      ? (feedProject ??
+        (directProject && directProject.id === selectedProjectId
+          ? directProject.project
+          : null))
       : staticSelectedProject;
 
-  // Memuat detail segar sekaligus mencatat view setelah project dari URL tersedia.
+  // Memuat detail segar sekaligus mencatat view untuk project dari feed
+  // (project yang dimuat langsung di atas sudah merupakan data segar).
   useEffect(() => {
-    if (selectedProject) loadProjectDetail(selectedProject.id);
-  }, [loadProjectDetail, selectedProject]);
+    if (feedProject) loadProjectDetail(feedProject.id);
+  }, [feedProject, loadProjectDetail]);
+  useEffect(() => {
+    if (mode === "static" && staticSelectedProject)
+      loadProjectDetail(staticSelectedProject.id);
+  }, [loadProjectDetail, mode, staticSelectedProject]);
 
   // Membuka detail project dan menyimpan ID-nya ke URL
   const openProject = (project: Project) => {
@@ -313,7 +353,6 @@ export function Explore({
     }
 
     setStaticSelectedProject(project);
-    loadProjectDetail(project.id);
   };
 
   // Menutup detail project dan membersihkan ID dari URL
