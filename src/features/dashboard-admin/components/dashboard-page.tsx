@@ -31,6 +31,10 @@ import type {
   UpgradeRequestEntry,
 } from "@/shared/lib/types/admin";
 import type { CurrentUser } from "@/shared/lib/types/user";
+import {
+  clearRoleRedirectGuard,
+  redirectToRoleDashboard,
+} from "@/shared/lib/dashboard-role-routing";
 import { useLanguage } from "@/shared/providers/language-provider";
 import { Button } from "@/shared/ui/button";
 
@@ -217,11 +221,10 @@ export function AdminDashboardPage() {
         const me = await userService.getMe();
         if (!active) return;
         if (me.role !== "admin") {
-          window.location.replace(
-            me.role === "creator" ? "/dashboard-creator" : "/dashboard",
-          );
+          redirectToRoleDashboard(me.role);
           return;
         }
+        clearRoleRedirectGuard();
         setCurrentUser(me);
         setPreview(false);
         setLoadError(null);

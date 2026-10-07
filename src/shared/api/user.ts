@@ -36,7 +36,9 @@ export const userService = {
     const response = await priemmanApiClient.requestProto(
       `${PRIEMMAN_API_VERSION}/users/me`,
       undefined,
-      { method: "GET" },
+      // Role dapat berubah setelah admin mengonfirmasi pembayaran. Jangan
+      // gunakan respons GET yang tersimpan browser saat dashboard di-reload.
+      { method: "GET", cache: "no-store" },
     );
     return parseCurrentUser(response);
   },

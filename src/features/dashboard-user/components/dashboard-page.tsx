@@ -19,6 +19,10 @@ import {
   userService,
 } from "@/shared/api";
 import { upgradeStatusClass } from "@/shared/lib/upgrade-status";
+import {
+  clearRoleRedirectGuard,
+  redirectToRoleDashboard,
+} from "@/shared/lib/dashboard-role-routing";
 import type { CalendarWorkspace } from "@/shared/lib/types/calendar";
 import type {
   CurrentUser,
@@ -168,11 +172,6 @@ function Overview({
           <p className="dashboard-body mt-2">
             {canRequestUpgrade ? copy.upgradeDescription : copy.currentLevel}
           </p>
-          {upgrade?.rejectionReason ? (
-            <p className="dashboard-status-label mt-3 rounded-[var(--radius-control)] bg-warning/10 p-3 text-copy-secondary">
-              {upgrade.rejectionReason}
-            </p>
-          ) : null}
           <Button
             className="mt-auto w-full !h-11 !min-h-11"
             disabled={!canRequestUpgrade || requesting}
@@ -402,7 +401,7 @@ function UpgradeLogTable({
                   <TableCell className="dashboard-body px-4 py-4 !text-copy">
                     {formatDate(log.reviewedAt, localeCode)}
                   </TableCell>
-                  <TableCell className="dashboard-body max-w-72 whitespace-normal px-4 py-4 pr-5 !text-copy">
+                  <TableCell className="dashboard-body max-w-72 whitespace-normal px-4 py-4 pr-5 !text-copy [overflow-wrap:anywhere]">
                     {log.rejectionReason || "—"}
                   </TableCell>
                 </TableRow>
@@ -474,13 +473,14 @@ export function UserDashboardPage() {
         const currentUser = await userService.getMe();
         if (!active) return;
         if (currentUser.role === "creator") {
-          window.location.replace("/dashboard-creator");
+          redirectToRoleDashboard(currentUser.role);
           return;
         }
         if (currentUser.role === "admin") {
-          window.location.replace("/dashboard-admin");
+          redirectToRoleDashboard(currentUser.role);
           return;
         }
+        clearRoleRedirectGuard();
         setUser(currentUser);
 
         const [
@@ -566,6 +566,10 @@ export function UserDashboardPage() {
         userService.getUpgradeStatus(),
         userService.listUpgradeLogs(upgradeLogLimit, 0),
       ]);
+      if (latestUser.role === "creator") {
+        redirectToRoleDashboard(latestUser.role);
+        return;
+      }
       setUser(latestUser);
       setUpgrade(latestUpgrade);
       setUpgradeLogs(latestLogs);

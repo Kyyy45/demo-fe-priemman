@@ -22,6 +22,10 @@ import {
   userService,
 } from "@/shared/api";
 import { upgradeStatusClass } from "@/shared/lib/upgrade-status";
+import {
+  clearRoleRedirectGuard,
+  redirectToRoleDashboard,
+} from "@/shared/lib/dashboard-role-routing";
 import type { CalendarWorkspace } from "@/shared/lib/types/calendar";
 import type {
   CurrentUser,
@@ -146,8 +150,6 @@ function Overview({
     "{name}",
     user.firstName || displayName(user),
   );
-  const canRequestUpgrade =
-    user.role === "user" && (status === "none" || status === "rejected");
   const calendarEvents = (calendar?.events ?? []).map((event, index) => ({
     title: event.title || t.calendar.untitled,
     from: event.start,
@@ -596,11 +598,10 @@ export function CreatorDashboardPage() {
         const currentUser = await userService.getMe();
         if (!active) return;
         if (currentUser.role !== "creator") {
-          window.location.replace(
-            currentUser.role === "admin" ? "/dashboard-admin" : "/dashboard",
-          );
+          redirectToRoleDashboard(currentUser.role);
           return;
         }
+        clearRoleRedirectGuard();
         setUser(currentUser);
 
         const [

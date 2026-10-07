@@ -10,6 +10,7 @@ import type {
   AdminUsersResult,
   UpgradeRequestEntry,
 } from "@/shared/lib/types/admin";
+import { MAX_REJECTION_REASON_LENGTH } from "@/shared/api/admin";
 import { upgradeStatusClass } from "@/shared/lib/upgrade-status";
 import { cn } from "@/shared/lib/utils";
 import { DashboardBanner } from "@/shared/layout/dashboard/dashboard-banner";
@@ -330,7 +331,7 @@ export function Overview({
                         <TableCell className="dashboard-body px-4 py-4 !text-copy">
                           {formatDate(request.requestedAt, localeCode)}
                         </TableCell>
-                        <TableCell className="dashboard-body max-w-72 whitespace-normal px-4 py-4 !text-copy">
+                        <TableCell className="dashboard-body max-w-72 whitespace-normal px-4 py-4 !text-copy [overflow-wrap:anywhere]">
                           {queueStatus === "rejected" ? (
                             request.rejectionReason || "—"
                           ) : request.invoiceId ? (
@@ -567,13 +568,22 @@ export function Overview({
         }}
         open={Boolean(rejecting)}
       >
-        <DialogContent className="max-w-md" showCloseButton={false}>
+        <DialogContent className="min-w-0 max-w-md" showCloseButton={false}>
           <form
-            className="grid gap-6"
+            className="grid min-w-0 gap-6"
             onSubmit={async (event) => {
               event.preventDefault();
-              if (!rejecting || !reason.trim()) return;
-              if (await onReject(rejecting, reason.trim())) setRejecting(null);
+              const normalizedReason = reason.trim();
+              if (
+                !rejecting ||
+                !normalizedReason ||
+                normalizedReason.length > MAX_REJECTION_REASON_LENGTH
+              ) {
+                return;
+              }
+              if (await onReject(rejecting, normalizedReason)) {
+                setRejecting(null);
+              }
             }}
           >
             <DialogHeader>
@@ -588,15 +598,15 @@ export function Overview({
                 )}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <Label htmlFor="admin-reject-reason">
                 {copy.rejectDialog.label}
               </Label>
               <Textarea
                 autoFocus
-                className="min-h-24 rounded-[var(--radius-control)] px-4 py-3 type-body"
+                className="min-h-24 min-w-0 w-full max-w-full resize-y rounded-[var(--radius-control)] px-4 py-3 type-body"
                 id="admin-reject-reason"
-                maxLength={500}
+                maxLength={MAX_REJECTION_REASON_LENGTH}
                 onChange={(event) => setReason(event.target.value)}
                 placeholder={copy.rejectDialog.placeholder}
                 value={reason}

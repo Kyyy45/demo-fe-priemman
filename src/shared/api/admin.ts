@@ -9,6 +9,8 @@ import {
 } from "./mappers/admin";
 import type { UserRole } from "@/shared/lib/types/user";
 
+export const MAX_REJECTION_REASON_LENGTH = 255;
+
 function objectIdMessage(id: string) {
   return encodeMessage([{ field: 1, type: "string", value: id }]);
 }
@@ -44,12 +46,16 @@ export const adminService = {
     approve: boolean,
     rejectionReason = "",
   ) {
+    const normalizedReason = rejectionReason.trim().slice(
+      0,
+      MAX_REJECTION_REASON_LENGTH,
+    );
     const response = await priemmanApiClient.requestProto(
       `${PRIEMMAN_API_VERSION}/admin/upgrades/review`,
       encodeMessage([
         { field: 1, type: "message", value: objectIdMessage(id) },
         { field: 2, type: "bool", value: approve },
-        { field: 3, type: "string", value: rejectionReason },
+        { field: 3, type: "string", value: normalizedReason },
       ]),
       { method: "POST" },
     );
