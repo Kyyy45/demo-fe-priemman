@@ -136,8 +136,13 @@ function toStudioProject(
   };
 }
 
-// Mengubah project Creator Studio menjadi project untuk overlay public
-function toExploreProject(project: StudioProject): ExploreProject {
+// Mengubah project Creator Studio menjadi data kartu Explore. Daftar milik
+// sendiri (ListByOwner) tidak membawa `author`, jadi avatar pemilik diambil
+// dari profil yang sedang login (`ownerAvatar`).
+function toExploreProject(
+  project: StudioProject,
+  ownerAvatar: string,
+): ExploreProject {
   const publishedAt = project.source.publishedAt
     ? new Date(project.source.publishedAt).getTime()
     : Date.now();
@@ -149,7 +154,7 @@ function toExploreProject(project: StudioProject): ExploreProject {
     tags: project.tags,
     author: {
       name: project.owner,
-      avatarUrl: project.source.author?.avatarUrl || undefined,
+      avatarUrl: project.source.author?.avatarUrl || ownerAvatar || undefined,
       headline: project.source.author?.headline || undefined,
       pro: false,
     },
@@ -236,6 +241,7 @@ export function CreatorStudio() {
   const [editProject, setEditProject] = useState<ApiProject | null>(null);
   const [ownerName, setOwnerName] = useState("Creator");
   const [ownerRole, setOwnerRole] = useState("Creator");
+  const [ownerAvatar, setOwnerAvatar] = useState("");
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
@@ -255,6 +261,7 @@ export function CreatorStudio() {
         const role = user.headline || user.company || "Creator";
         setOwnerName(name);
         setOwnerRole(role);
+        setOwnerAvatar(user.avatarUrl);
         const ownedProjects = ownedResult.filter((project) =>
           isProjectOwnedBy(project, user.id),
         );
@@ -428,7 +435,7 @@ export function CreatorStudio() {
         label={statusLabel(project)}
         likeAria={s.actions.edit}
         onOpen={() => openPublicProject(project)}
-        project={toExploreProject(project)}
+        project={toExploreProject(project, ownerAvatar)}
       />
     ));
   };
