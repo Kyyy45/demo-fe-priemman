@@ -73,9 +73,12 @@ export function Table01({
         </div>
       </div>
 
+      {/* min-h-0 + overflow-auto: di kartu bertinggi tetap (overview
+          dashboard yang setinggi sidebar) tabel di-scroll di dalam kotak ini,
+          sementara baris "Show" dan pagination tetap terlihat. */}
       <div
         aria-busy={loading}
-        className="overflow-hidden rounded-[var(--radius-control)] border border-border-subtle bg-surface-container-low text-copy [&_th]:type-label [&_th]:font-medium [&_th]:text-copy-secondary [&_td]:type-body [&_td]:text-copy"
+        className="min-h-0 overflow-auto rounded-[var(--radius-control)] border border-border-subtle bg-surface-container-low text-copy [&_th]:type-label [&_th]:font-medium [&_th]:text-copy-secondary [&_td]:type-body [&_td]:text-copy"
       >
         {children}
       </div>

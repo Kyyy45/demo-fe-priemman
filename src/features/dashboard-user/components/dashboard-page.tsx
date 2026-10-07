@@ -143,7 +143,7 @@ function Overview({
   }));
 
   return (
-    <section className="grid min-h-[calc(100svh-7.75rem)] w-full grid-cols-1 items-stretch gap-[var(--grid-gap)] m3-large:grid-cols-[minmax(0,1fr)_16.5rem_16.5rem] m3-large:grid-rows-[20rem_minmax(28rem,1fr)]">
+    <section className="grid min-h-[calc(100svh-7.75rem)] w-full grid-cols-1 items-stretch gap-[var(--grid-gap)] m3-large:-mb-[var(--dashboard-content-padding)] m3-large:h-[max(calc(100svh_-_var(--dashboard-header-height)_-_var(--dashboard-frame)_*_3),40rem)] m3-large:min-h-0 m3-large:grid-cols-[minmax(0,1fr)_16.5rem_16.5rem] m3-large:grid-rows-[20rem_minmax(0,1fr)]">
       <FolderCard
         connectedCount={user.connectedAccounts.length}
         likedCount={libraryCounts.liked}
@@ -189,7 +189,7 @@ function Overview({
 
       <Calendar08
         addEventLabel={t.calendar.refresh}
-        className="min-h-[calc(48rem+var(--grid-gap))] m3-large:col-start-3 m3-large:row-span-2 m3-large:row-start-1"
+        className="min-h-[calc(48rem+var(--grid-gap))] m3-large:col-start-3 m3-large:row-span-2 m3-large:row-start-1 m3-large:min-h-0"
         emptyLabel={t.calendar.noEvents}
         events={calendarEvents}
         locale={lang === "id" ? id : enUS}
@@ -342,7 +342,7 @@ function UpgradeLogTable({
         };
 
   return (
-    <section className="flex min-h-[28rem] flex-col overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-surface-container-low m3-large:col-span-2 m3-large:col-start-1 m3-large:row-start-2">
+    <section className="flex min-h-[28rem] flex-col overflow-hidden rounded-[var(--radius-card)] border border-border-subtle bg-surface-container-low m3-large:col-span-2 m3-large:col-start-1 m3-large:row-start-2 m3-large:min-h-0">
       <div className="border-b border-border-subtle p-[var(--dashboard-frame)]">
         <h2 className="dashboard-card-table">{copy.upgrade}</h2>
         <p className="dashboard-table-label mt-1">{copy.historyTitle}</p>
