@@ -1,5 +1,5 @@
 // Subset copy untuk landing page (nav, hero, about, team, explore,
-// projectDetail, contact, faq, cta, footer). Sumber lengkap (dashboard, auth,
+// projectDetail, contact, faq, footer). Sumber lengkap (dashboard, auth,
 // calendar, dll.) ada di final design priemman-frontend; tambahkan section
 // lain ke sini saat fitur terkait mulai diport, jangan import dari project
 // lama secara langsung.
@@ -937,44 +937,11 @@ export const translations = {
         },
       ],
     },
-    cta: {
-      titleBefore: "Ready to show your",
-      titleAccent: "best work",
-      titleAfter: "to the world?",
-      subtitle:
-        "Join a community of creators who care about craft. Publish your first shot in minutes.",
-      button: "Start sharing",
-      note: "Free forever for your first portfolio.",
-    },
     footer: {
-      tagline:
-        "Where great work finds its audience — crafted with care since 2023.",
-      columns: [
-        {
-          title: "Product",
-          links: [
-            { label: "Home", href: "/" },
-            { label: "Explore", href: "/explore" },
-            { label: "Contacts", href: "/contact" },
-          ],
-        },
-        {
-          title: "Company",
-          links: [
-            { label: "About", href: "/#about" },
-            { label: "Team", href: "/#team" },
-            { label: "Careers", href: "#" },
-          ],
-        },
-        {
-          title: "Resources",
-          links: [{ label: "Contact us", href: "mailto:support@priemman.my.id" }],
-        },
-      ],
       copyright: "© 2026 Priemman. All rights reserved.",
       legal: [
-        { label: "Terms", href: "#" },
-        { label: "Privacy", href: "#" },
+        { label: "Terms", href: "/terms" },
+        { label: "Privacy", href: "/privacy-policy" },
       ],
     },
   },
@@ -1915,43 +1882,11 @@ export const translations = {
         },
       ],
     },
-    cta: {
-      titleBefore: "Siap menunjukkan",
-      titleAccent: "karya terbaikmu",
-      titleAfter: "ke dunia?",
-      subtitle:
-        "Bergabunglah dengan komunitas kreator yang peduli pada craft. Terbitkan karya pertamamu dalam hitungan menit.",
-      button: "Mulai berbagi",
-      note: "Gratis selamanya untuk portofolio pertamamu.",
-    },
     footer: {
-      tagline: "Tempat karya hebat menemukan audiensnya — dirangkai dengan peduli sejak 2023.",
-      columns: [
-        {
-          title: "Produk",
-          links: [
-            { label: "Beranda", href: "/" },
-            { label: "Jelajah", href: "/explore" },
-            { label: "Kontak", href: "/contact" },
-          ],
-        },
-        {
-          title: "Perusahaan",
-          links: [
-            { label: "Tentang", href: "/#about" },
-            { label: "Tim", href: "/#team" },
-            { label: "Karier", href: "#" },
-          ],
-        },
-        {
-          title: "Sumber",
-          links: [{ label: "Hubungi kami", href: "mailto:support@priemman.my.id" }],
-        },
-      ],
       copyright: "© 2026 Priemman. Hak cipta dilindungi.",
       legal: [
-        { label: "Ketentuan", href: "#" },
-        { label: "Privasi", href: "#" },
+        { label: "Ketentuan", href: "/terms" },
+        { label: "Privasi", href: "/privacy-policy" },
       ],
     },
   },

@@ -2,7 +2,6 @@ import { Suspense } from "react";
 
 import { Explore } from "@/features/landing/components/explore/explore";
 import { About } from "@/features/landing/components/sections/about";
-import { Cta } from "@/features/landing/components/sections/cta";
 import { Faq } from "@/features/landing/components/sections/faq";
 import { Hero } from "@/features/landing/components/sections/hero";
 import { TeamShowcase } from "@/features/landing/components/sections/team-showcase";
@@ -19,7 +18,6 @@ export default function LandingHomePage() {
         <Explore limit={20} showSeeMore />
       </Suspense>
       <Faq />
-      <Cta />
     </PublicPageShell>
   );
 }

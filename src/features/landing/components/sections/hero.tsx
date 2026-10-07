@@ -102,7 +102,7 @@ export function Hero() {
           data-hero-cta
           className="mt-10 flex flex-wrap items-center justify-center gap-4"
         >
-          <PrimaryActionLink href="#featured">{t.hero.cta}</PrimaryActionLink>
+          <PrimaryActionLink href="#explore">{t.hero.cta}</PrimaryActionLink>
         </div>
       </div>
 
