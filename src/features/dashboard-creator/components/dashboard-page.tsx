@@ -36,7 +36,7 @@ import type { Project } from "@/shared/lib/types/project";
 import { AccountSettings } from "@/shared/layout/dashboard/account";
 import { DashboardLayout } from "@/shared/layout/dashboard/dashboard-layout";
 import { DashboardLoading } from "@/shared/layout/dashboard/dashboard-loading";
-import { ReverseCutoutCard } from "@/shared/layout/dashboard/reverse-cutout-card";
+import { DashboardFolderCard } from "@/shared/layout/dashboard/folder-card";
 import { useDashboardNavigation } from "@/shared/layout/dashboard/use-dashboard-navigation";
 import { useLanguage } from "@/shared/providers/language-provider";
 import { Button } from "@/shared/ui/button";
@@ -348,58 +348,34 @@ export function FolderCard({
           accounts: "Total accounts",
         };
   return (
-    <figure className="relative min-h-80 w-full overflow-hidden">
-      <svg
-        aria-hidden="true"
-        className="absolute inset-0 size-full"
-        preserveAspectRatio="none"
-        viewBox="0 0 1000 320"
-      >
-        <defs>
-          <clipPath id="dashboard-folder-clip">
-            <path d="M0 84Q0 68 48 68H624Q638 68 648 55L690 10Q700 0 720 0H952Q1000 0 1000 24V296Q1000 320 952 320H48Q0 320 0 296Z" />
-          </clipPath>
-        </defs>
-        <image
-          clipPath="url(#dashboard-folder-clip)"
-          height="320"
-          href="/thumb_card.png"
-          preserveAspectRatio="xMidYMid slice"
-          width="1000"
-        />
-      </svg>
-      <figcaption className="absolute left-0 right-[33%] top-2 z-10 min-w-0 overflow-hidden pr-3">
-        <h1 className="dashboard-card-title block max-w-full overflow-hidden text-ellipsis whitespace-nowrap !text-base">
-          {title}
-        </h1>
-        <p className="dashboard-body mt-0.5 block max-w-full overflow-hidden text-ellipsis whitespace-nowrap !text-sm">
-          {subtitle}
-        </p>
-      </figcaption>
-      <div className="absolute inset-x-1.5 bottom-2 z-10 grid grid-cols-3 gap-1 min-[23.5rem]:inset-x-3 min-[23.5rem]:bottom-3 min-[23.5rem]:gap-2 m3-medium:inset-x-[var(--card-padding)] m3-medium:bottom-[var(--card-padding)] m3-medium:gap-3">
-        <ReverseCutoutCard
-          description={metricCopy.projects}
-          metric={likedCount}
-          onClick={() => onOpenLibrary("Liked")}
-          surfaceClassName="[--metric-surface:var(--dashboard-metric-liked)]"
-          title={metricCopy.liked}
-        />
-        <ReverseCutoutCard
-          description={metricCopy.projects}
-          metric={savedCount}
-          onClick={() => onOpenLibrary("Saved")}
-          surfaceClassName="[--metric-surface:var(--dashboard-metric-saved)]"
-          title={metricCopy.saved}
-        />
-        <ReverseCutoutCard
-          description={metricCopy.accounts}
-          metric={connectedCount}
-          onClick={onOpenAccount}
-          surfaceClassName="[--metric-surface:var(--dashboard-metric-connected)]"
-          title={metricCopy.connected}
-        />
-      </div>
-    </figure>
+    <DashboardFolderCard
+      metrics={[
+        {
+          description: metricCopy.projects,
+          metric: likedCount,
+          onClick: () => onOpenLibrary("Liked"),
+          surfaceClassName: "[--metric-surface:var(--dashboard-metric-liked)]",
+          title: metricCopy.liked,
+        },
+        {
+          description: metricCopy.projects,
+          metric: savedCount,
+          onClick: () => onOpenLibrary("Saved"),
+          surfaceClassName: "[--metric-surface:var(--dashboard-metric-saved)]",
+          title: metricCopy.saved,
+        },
+        {
+          description: metricCopy.accounts,
+          metric: connectedCount,
+          onClick: onOpenAccount,
+          surfaceClassName:
+            "[--metric-surface:var(--dashboard-metric-connected)]",
+          title: metricCopy.connected,
+        },
+      ]}
+      subtitle={subtitle}
+      title={title}
+    />
   );
 }
 
