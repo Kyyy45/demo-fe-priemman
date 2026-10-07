@@ -1,0 +1,998 @@
+/* Ditarik dari final design priemman-frontend (lihat docs/ARCHITECTURE.md).
+   Token "surface/heading/brand/type-*" adalah sistem desain utama; token
+   --background/--primary/dst. dipertahankan sebagai alias supaya komponen
+   shadcn/ui bawaan (Button, Sheet, dll.) tetap jalan tanpa perubahan. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Tailwind Tokens */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-frame: var(--frame);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-dim: var(--surface-dim);
+  --color-heading: var(--text-heading);
+  --color-copy: var(--text-primary);
+  --color-copy-secondary: var(--text-secondary);
+  --color-copy-muted: var(--text-muted);
+  --color-copy-disabled: var(--text-disabled);
+  --color-on-surface: var(--text-primary);
+  --color-on-surface-variant: var(--text-secondary);
+  --color-on-dark: var(--text-on-dark);
+  --color-action-ink: var(--action-ink);
+  --color-brand: var(--brand-primary);
+  --color-brand-hover: var(--brand-primary-hover);
+  --color-brand-active: var(--brand-primary-active);
+  --color-on-brand: var(--brand-on-primary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-border-interactive: var(--border-interactive);
+  /* Utility font mengambil variable next/font dari app/layout.tsx. */
+  --font-sans: var(--font-manrope), sans-serif;
+  --font-mono: var(--font-plex-mono), monospace;
+  --font-heading: var(--font-yeseva), serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-field: var(--field);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --font-serif: var(--font-lora), serif;
+  --radius: 0.5rem;
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+  --tracking-normal: var(--tracking-normal);
+  --shadow-2xl: var(--shadow-2xl);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-md: var(--shadow-md);
+  --shadow: var(--shadow);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-2xs: var(--shadow-2xs);
+  --spacing: var(--spacing);
+  --letter-spacing: var(--letter-spacing);
+  --shadow-offset-y: var(--shadow-offset-y);
+  --shadow-offset-x: var(--shadow-offset-x);
+  --shadow-spread: var(--shadow-spread);
+  --shadow-blur: var(--shadow-blur);
+  --shadow-opacity: var(--shadow-opacity);
+  --color-shadow-color: var(--shadow-color);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-error: var(--error);
+  --breakpoint-m3-medium: 37.5rem;
+  --breakpoint-m3-expanded: 52.5rem;
+  /* 1000px memberi ruang untuk scrollbar pada viewport perangkat 1024px. */
+  --breakpoint-m3-laptop: 62.5rem;
+  --breakpoint-m3-large: 75rem;
+  --breakpoint-m3-extra-large: 100rem;
+}
+
+/* Light Theme */
+:root {
+  color-scheme: light;
+
+  /* Hierarki surface memakai tiga lapisan semantik. */
+  --canvas: oklch(0.925 0.003 286.37);
+  --surface: oklch(0.972 0.002 286.37);
+  --surface-raised: oklch(1 0 0);
+  --surface-muted: oklch(0.95 0.003 286);
+  --surface-overlay: oklch(1 0 0 / 0.94);
+  /* Tonal surface hierarchy Material Design 3. */
+  --surface-container-lowest: oklch(1 0 0);
+  --surface-container-low: oklch(0.955 0.002 286.37);
+  --surface-container: oklch(0.94 0.0025 286.37);
+  --surface-container-high: oklch(0.925 0.003 286.37);
+  --surface-container-highest: oklch(0.91 0.0035 286.37);
+  --surface-bright: oklch(1 0 0);
+  --surface-dim: oklch(0.89 0.004 286.37);
+
+  /* Setiap peran teks menjaga hierarki pada seluruh surface komponen. */
+  --text-heading: oklch(0.145 0 0);
+  --text-primary: oklch(0.23 0 0);
+  --text-secondary: oklch(0.41 0 0);
+  --text-muted: oklch(0.54 0 0);
+  --text-disabled: oklch(0.68 0 0);
+  --text-on-dark: oklch(0.985 0 0);
+  --action-ink: oklch(0.105 0 0);
+
+  /* Surface metrik dashboard mempertahankan identitas masing-masing kartu,
+     tetapi tetap berasal dari palet tema dan memiliki kontras teks yang aman. */
+  --dashboard-metric-liked: color-mix(
+    in oklch,
+    var(--warning) 24%,
+    var(--surface-container-lowest)
+  );
+  --dashboard-metric-saved: color-mix(
+    in oklch,
+    var(--brand-primary) 14%,
+    var(--surface-container-lowest)
+  );
+  --dashboard-metric-connected: var(--surface-container-high);
+
+  /* Aksen brand memakai nilai yang sama pada tema terang dan gelap. */
+  --brand-primary: oklch(0.5393 0.2713 286.7462);
+  --brand-primary-hover: oklch(0.5 0.26 286.7462);
+  --brand-primary-active: oklch(0.46 0.245 286.7462);
+  --brand-on-primary: oklch(0.985 0 0);
+  --success: oklch(0.59 0.16 155);
+  --warning: oklch(0.72 0.15 75);
+  --danger: oklch(0.57 0.21 25);
+  --focus-ring: var(--brand-primary);
+
+  --border-subtle: oklch(0.9 0.006 286);
+  --border-strong: oklch(0.82 0.008 286);
+  --border-interactive: var(--brand-primary);
+
+  --radius-control: 0.625rem;
+  --radius-signature-action: 0.75rem;
+  --radius-panel: 1rem;
+  --radius-card: 1.25rem;
+  --radius-feature: 1.75rem;
+  --radius-dialog: 1.25rem;
+  --radius-pill: 999px;
+
+  /* Display M3: 36px mobile, lalu meningkat hingga baseline 57px. */
+  --type-display: 2.25rem;
+  --type-page-title: 2rem;
+  /* Headline Small baseline M3 untuk heading section. */
+  --type-section-title: 1.5rem;
+  --type-component-title: 1.3125rem;
+  /* Title Medium baseline M3 untuk judul card. */
+  --type-card-title: 1rem;
+  --type-subheading: 1rem;
+  --type-body-large: 1rem;
+  /* Body Medium baseline M3 untuk isi dan metadata deskriptif. */
+  --type-body: 0.875rem;
+  --type-label: 0.875rem;
+  --type-metadata: 0.75rem;
+
+  --page-gutter: 1rem;
+  --rectangle-gap: 0.75rem;
+  --panel-padding: 1rem;
+  --card-padding: 1rem;
+  --grid-gap: 0.75rem;
+  --dashboard-section-gap: 2rem;
+  --landing-section-gap: 4rem;
+  --viewport-block-size: 100dvh;
+
+  --shadow-control: 0 1px 2px oklch(0.25 0.01 286 / 0.08);
+  --shadow-card: 0 8px 24px -12px oklch(0.25 0.01 286 / 0.18);
+  --shadow-panel: 0 14px 40px -20px oklch(0.25 0.01 286 / 0.22);
+  --shadow-dialog: 0 24px 72px -24px oklch(0.2 0.01 286 / 0.35);
+
+  /* Alias lama menjaga pemakai tetap berjalan selama migrasi bertahap. */
+  --frame: var(--canvas);
+  --background: var(--surface);
+  --foreground: var(--text-primary);
+  --card: var(--surface-raised);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--brand-on-primary);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-muted);
+  --muted-foreground: var(--text-secondary);
+  --accent: oklch(0.9393 0.0288 286.7462);
+  --accent-foreground: var(--brand-primary-active);
+  --destructive: var(--danger);
+  --destructive-foreground: oklch(1 0 0);
+  --error: var(--danger);
+  --border: var(--border-subtle);
+  --input: var(--border-strong);
+  --field: var(--surface-muted);
+  --ring: var(--focus-ring);
+  --chart-1: oklch(0.7459 0.1483 156.4499);
+  --chart-2: var(--brand-primary);
+  --chart-3: oklch(0.7336 0.1758 50.5517);
+  --chart-4: oklch(0.5828 0.1809 259.7276);
+  --chart-5: oklch(0.559 0 0);
+  --radius: var(--radius-control);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: var(--brand-on-primary);
+  --sidebar-accent: var(--surface-muted);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--focus-ring);
+  /* Token pendukung mengatur shadow dan tracking. */
+  --shadow-color: oklch(0.25 0.01 286);
+  --shadow-opacity: 0.16;
+  --shadow-blur: 3px;
+  --shadow-spread: 0px;
+  --shadow-offset-x: 0px;
+  --shadow-offset-y: 2px;
+  --letter-spacing: -0.025em;
+  --spacing: 0.25rem;
+  --shadow-2xs: var(--shadow-control);
+  --shadow-xs: var(--shadow-control);
+  --shadow-sm: var(--shadow-control);
+  --shadow: var(--shadow-card);
+  --shadow-md: var(--shadow-card);
+  --shadow-lg: var(--shadow-panel);
+  --shadow-xl: var(--shadow-panel);
+  --shadow-2xl: var(--shadow-dialog);
+  --tracking-normal: -0.025em;
+}
+
+/* Dark Theme */
+.dark {
+  color-scheme: dark;
+  --canvas: oklch(0.145 0.004 286);
+  --surface: oklch(0.205 0.006 274);
+  --surface-raised: oklch(0.255 0.008 274);
+  --surface-muted: oklch(0.285 0.01 273);
+  --surface-overlay: oklch(0.215 0.006 274 / 0.94);
+  /* Tonal surface hierarchy Material Design 3. */
+  --surface-container-lowest: oklch(0.125 0.0035 274);
+  --surface-container-low: oklch(0.18 0.005 274);
+  --surface-container: oklch(0.215 0.006 274);
+  --surface-container-high: oklch(0.25 0.007 274);
+  --surface-container-highest: oklch(0.29 0.008 274);
+  --surface-bright: oklch(0.33 0.009 274);
+  --surface-dim: oklch(0.14 0.0035 274);
+  --text-heading: oklch(0.97 0 0);
+  --text-primary: oklch(0.9 0 0);
+  --text-secondary: oklch(0.74 0 0);
+  --text-muted: oklch(0.61 0 0);
+  --text-disabled: oklch(0.47 0 0);
+  --action-ink: oklch(0.105 0 0);
+  --dashboard-metric-liked: color-mix(
+    in oklch,
+    var(--warning) 14%,
+    var(--surface-container-low)
+  );
+  --dashboard-metric-saved: color-mix(
+    in oklch,
+    var(--brand-primary) 16%,
+    var(--surface-container-low)
+  );
+  --dashboard-metric-connected: var(--surface-container-high);
+  --success: oklch(0.68 0.15 155);
+  --warning: oklch(0.78 0.13 75);
+  --danger: oklch(0.68 0.19 25);
+  --border-subtle: oklch(0.325 0.009 270);
+  --border-strong: oklch(0.41 0.01 270);
+  --shadow-control: 0 1px 2px oklch(0 0 0 / 0.28);
+  --shadow-card: 0 10px 28px -14px oklch(0 0 0 / 0.55);
+  --shadow-panel: 0 16px 44px -20px oklch(0 0 0 / 0.62);
+  --shadow-dialog: 0 28px 80px -24px oklch(0 0 0 / 0.72);
+
+  --frame: var(--canvas);
+  --background: var(--surface);
+  --foreground: var(--text-primary);
+  --card: var(--surface-raised);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--brand-primary);
+  --primary-foreground: var(--brand-on-primary);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-muted);
+  --muted-foreground: var(--text-secondary);
+  --accent: oklch(0.3 0.045 286.7462);
+  --accent-foreground: oklch(0.86 0.08 286.7462);
+  --destructive: var(--danger);
+  --destructive-foreground: oklch(1 0 0);
+  --error: var(--danger);
+  --border: var(--border-subtle);
+  --input: var(--border-strong);
+  --field: var(--surface-muted);
+  --ring: var(--focus-ring);
+  --chart-1: oklch(0.8003 0.1821 151.711);
+  --chart-2: var(--brand-primary);
+  --chart-3: oklch(0.8077 0.1035 19.5706);
+  --chart-4: oklch(0.6691 0.1569 260.1063);
+  --chart-5: oklch(0.7058 0 0);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: var(--brand-on-primary);
+  --sidebar-accent: var(--surface-muted);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--border-subtle);
+  --sidebar-ring: var(--focus-ring);
+  --shadow-color: oklch(0 0 0);
+  --shadow-2xs: var(--shadow-control);
+  --shadow-xs: var(--shadow-control);
+  --shadow-sm: var(--shadow-control);
+  --shadow: var(--shadow-card);
+  --shadow-md: var(--shadow-card);
+  --shadow-lg: var(--shadow-panel);
+  --shadow-xl: var(--shadow-panel);
+  --shadow-2xl: var(--shadow-dialog);
+}
+
+/* Responsive Scale */
+/* Breakpoint mengikuti kelas ukuran Material berdasarkan lebar viewport. */
+@media (min-width: 37.5rem) {
+  :root {
+    --type-display: 2.8125rem;
+    --type-page-title: 2.25rem;
+    --type-section-title: 1.5rem;
+    --type-component-title: 1.375rem;
+    --type-card-title: 1rem;
+    --page-gutter: 1.5rem;
+    --rectangle-gap: 1rem;
+    --panel-padding: 1.25rem;
+    --card-padding: 1.25rem;
+    --grid-gap: 1rem;
+    --dashboard-section-gap: 2.25rem;
+    --landing-section-gap: 5rem;
+  }
+}
+
+@media (min-width: 52.5rem) {
+  :root {
+    --type-display: 3.5625rem;
+    --type-page-title: 2.5rem;
+    --type-section-title: 1.75rem;
+    --type-component-title: 1.5rem;
+    --type-body-large: 1rem;
+    --type-subheading: 1.0625rem;
+    --panel-padding: 1.5rem;
+    --dashboard-section-gap: 2.5rem;
+    --landing-section-gap: 6rem;
+  }
+}
+
+/* Lead copy Hero diberi ruang visual lebih pada kanvas laptop/desktop. */
+@media (min-width: 62.5rem) {
+  :root {
+    --type-body-large: 1.125rem;
+  }
+}
+
+@media (min-width: 75rem) {
+  :root {
+    --type-display: 3.5625rem;
+    --type-page-title: 3rem;
+    --type-section-title: 1.75rem;
+    --type-component-title: 1.75rem;
+    --type-card-title: 1rem;
+    --type-subheading: 1.125rem;
+    --type-body-large: 1rem;
+    --type-body: 0.875rem;
+    --type-metadata: 0.75rem;
+    --page-gutter: 2rem;
+    --rectangle-gap: 1.25rem;
+    --card-padding: 1.5rem;
+    --grid-gap: 1.25rem;
+    --dashboard-section-gap: 3rem;
+    --landing-section-gap: 7rem;
+  }
+}
+
+@media (min-width: 100rem) {
+  :root {
+    --type-display: 3.5625rem;
+    --type-page-title: 3.5rem;
+    --type-section-title: 1.75rem;
+    --type-component-title: 1.875rem;
+    --type-card-title: 1rem;
+    --type-subheading: 1.1875rem;
+    --type-label: 0.875rem;
+    --page-gutter: 2.5rem;
+    --rectangle-gap: 1.5rem;
+    --panel-padding: 2rem;
+    --card-padding: 1.75rem;
+    --grid-gap: 1.5rem;
+    --dashboard-section-gap: 3.5rem;
+    --landing-section-gap: 8rem;
+  }
+}
+
+/* Base Styles */
+@layer base {
+  * {
+    @apply border-border-subtle outline-brand/50;
+  }
+  body {
+    @apply bg-canvas text-copy;
+    letter-spacing: var(--tracking-normal);
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    overflow-x: clip;
+  }
+  /* Radix RemoveScroll menambah margin kanan sebagai kompensasi scrollbar.
+     Karena html sudah memakai scrollbar-gutter: stable, kompensasi itu akan
+     mendorong seluruh landing canvas ke kiri saat dialog filter dibuka. */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
+  html {
+    @apply font-sans;
+    max-inline-size: 100%;
+    overflow-x: clip;
+    /* Mencegah layout bergeser saat Dialog mengunci scroll dokumen. */
+    scrollbar-gutter: stable;
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+  }
+
+  :where(button, input, select, textarea) {
+    font: inherit;
+  }
+
+  :where(h1, h2, h3, h4, h5, h6) {
+    color: var(--text-heading);
+    text-wrap: balance;
+  }
+
+  :where(p) {
+    text-wrap: pretty;
+  }
+
+  :where(img, video, canvas, svg) {
+    max-inline-size: 100%;
+    block-size: auto;
+  }
+}
+
+/* Semantic Utilities */
+@layer components {
+  /* Grid 12 kolom untuk dashboard/bento. Min inline size pada setiap item
+     mencegah text, tabel, dan media memperlebar track grid. */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--grid-gap);
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .bento-grid > * {
+    min-inline-size: 0;
+  }
+
+  .container-site {
+    width: min(100%, 90rem);
+    margin-inline: auto;
+    padding-inline: var(--page-gutter);
+  }
+
+  .type-display {
+    color: var(--text-heading);
+    font-family: var(--font-yeseva), serif;
+    font-size: var(--type-display);
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .type-page-title {
+    color: var(--text-heading);
+    font-size: var(--type-page-title);
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .type-section-title {
+    color: var(--text-heading);
+    font-size: var(--type-section-title);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-wrap: balance;
+  }
+
+  .type-component-title {
+    color: var(--text-heading);
+    font-size: var(--type-component-title);
+    font-weight: 600;
+    line-height: 1.24;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .type-card-title {
+    color: var(--text-primary);
+    font-size: var(--type-card-title);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.009375rem;
+    text-wrap: balance;
+  }
+
+  .type-subheading {
+    color: var(--text-secondary);
+    font-size: var(--type-subheading);
+    line-height: 1.5;
+  }
+
+  .type-body-large {
+    color: var(--text-secondary);
+    font-size: var(--type-body-large);
+    line-height: 1.5;
+    max-inline-size: 65ch;
+  }
+
+  .type-body {
+    color: var(--text-secondary);
+    font-size: var(--type-body);
+    line-height: 1.5;
+    max-inline-size: 65ch;
+  }
+
+  /* Landing memakai lead copy yang lebih lega daripada data-dense dashboard. */
+  .landing-shell .type-body {
+    font-size: 1rem;
+  }
+
+  .type-label {
+    color: var(--text-primary);
+    font-size: var(--type-label);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .type-metadata {
+    color: var(--text-muted);
+    font-size: var(--type-metadata);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  /* Type scale M3 yang stabil untuk detail project/public profile. */
+  .m3-headline-large {
+    font-family: var(--font-yeseva), serif;
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .m3-headline-small {
+    font-family: var(--font-yeseva), serif;
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .m3-title-large {
+    font-size: 1.375rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .m3-title-medium {
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.009375rem;
+    line-height: 1.2;
+  }
+
+  /* Nilai KPI dashboard: Headline Medium/Large 28–32px dengan bobot tegas. */
+  .m3-dashboard-metric {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+
+  .m3-body-medium {
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: 0.015625rem;
+    line-height: 1.5;
+  }
+
+  .m3-body-small {
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.025rem;
+    line-height: 1.5;
+  }
+
+  .m3-label-large {
+    font-size: 0.875rem;
+    font-weight: 500;
+    letter-spacing: 0.00625rem;
+    line-height: 1.5;
+  }
+
+  .m3-label-medium {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.03125rem;
+    line-height: 1.5;
+  }
+
+  .m3-label-small {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.03125rem;
+    line-height: 1.5;
+  }
+}
+
+@media (min-width: 62.5rem) {
+  .m3-dashboard-metric {
+    font-size: 2rem;
+  }
+
+  .landing-shell .type-body {
+    font-size: 1.125rem;
+  }
+}
+
+.font-accent-serif {
+  font-family: var(--font-lora), Georgia, "Times New Roman", Times, serif;
+  font-style: italic;
+}
+
+/* Dashboard Typography */
+/* Dashboard memakai Manrope. Hanya wordmark Priemman yang tetap memakai
+   font display. */
+.dashboard-manrope {
+  font-family: var(--font-manrope), sans-serif;
+
+  /* Token ini hanya mengatur aplikasi dashboard. Landing dan Auth tidak
+     mewarisi nilainya, sehingga visual Public yang sudah final tetap aman. */
+  --dashboard-page-gutter: 0.875rem;
+  /* Satu ritme 14px untuk sidebar–content, header–content, dan antar-card. */
+  --dashboard-shell-gap: var(--dashboard-frame);
+  --dashboard-frame: 0.875rem;
+  --dashboard-header-height: 4.5rem;
+  /* Konten sejajar dengan jarak sidebar–header pada frame dashboard. */
+  --dashboard-content-padding: var(--dashboard-frame);
+  --dashboard-header-padding: 1rem;
+  --dashboard-header-action-gap: 0.75rem;
+  --dashboard-menu-height: 3rem;
+  --dashboard-submenu-height: 2.75rem;
+  --dashboard-menu-gap: 0.125rem;
+  --dashboard-panel-padding: 1rem;
+  --dashboard-card-padding: 1rem;
+  --dashboard-section-gap: var(--dashboard-frame);
+  --dashboard-sidebar-width: 17.5rem;
+  --dashboard-navigation-width: var(--dashboard-sidebar-width);
+  --dashboard-context-width: var(--dashboard-sidebar-width);
+
+  --page-gutter: var(--dashboard-page-gutter);
+  --grid-gap: var(--dashboard-shell-gap);
+  --panel-padding: var(--dashboard-panel-padding);
+  --card-padding: var(--dashboard-card-padding);
+}
+
+@media (min-width: 40rem) {
+  .dashboard-manrope {
+    --dashboard-page-gutter: 1.25rem;
+    --dashboard-panel-padding: 1.25rem;
+    --dashboard-card-padding: 1.125rem;
+    --dashboard-header-padding: 1.25rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  .dashboard-manrope {
+    --dashboard-page-gutter: 1.5rem;
+    --dashboard-panel-padding: 1.5rem;
+    --dashboard-card-padding: 1.5rem;
+    --dashboard-header-padding: 1.5rem;
+  }
+}
+
+.dashboard-manrope .font-heading {
+  font-family: inherit;
+}
+
+.dashboard-manrope .dashboard-logo-wordmark {
+  font-family: var(--font-yeseva), serif;
+}
+
+/* Role tipografi dashboard mengikuti skala data-dense pada DESIGN.md. */
+.dashboard-manrope .dashboard-page-title {
+  color: var(--text-heading);
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.dashboard-manrope .dashboard-card-title {
+  color: var(--text-heading);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.009375rem;
+  line-height: 1.2;
+}
+
+.dashboard-manrope .dashboard-body {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.dashboard-manrope .dashboard-table-label {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.03125rem;
+  line-height: 1.5;
+}
+
+.dashboard-manrope .dashboard-status-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.03125rem;
+  line-height: 1.5;
+}
+
+/* Dashboard memiliki frame 14px seperti SiteFrame Landing, tetapi ukuran
+   sidebar dan tinggi header tidak berubah. Aturan ini hanya menyentuh shell
+   Shadcn pada dashboard desktop; Sheet mobile tetap memakai ukuran bawaan. */
+@media (min-width: 48rem) {
+  .dashboard-manrope [data-slot="sidebar-container"] {
+    inset-block: var(--dashboard-frame) !important;
+    block-size: calc(100svh - (var(--dashboard-frame) * 2)) !important;
+  }
+
+  .dashboard-manrope [data-slot="sidebar-container"][data-side="left"] {
+    inset-inline-start: var(--dashboard-frame) !important;
+  }
+
+  .dashboard-manrope [data-slot="sidebar-inner"] {
+    border: 1px solid var(--sidebar-border);
+    border-radius: var(--radius-card);
+  }
+
+  .dashboard-manrope [data-slot="sidebar-container"][data-side="left"] {
+    border-inline-end-width: 0 !important;
+  }
+
+  .dashboard-manrope
+    [data-slot="sidebar"][data-collapsible="icon"]
+    [data-dashboard-sidebar-brand] {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .dashboard-manrope
+    [data-slot="sidebar"][data-collapsible="icon"]
+    [data-dashboard-sidebar-brand]
+    > span {
+    display: none;
+  }
+}
+
+/* Landing membutuhkan gutter scrollbar stabil agar Dialog filter tidak menggeser
+   canvas. Dashboard tidak memakai overlay tersebut, jadi ruang scrollbar tidak
+   perlu dicadangkan: panel dapat mencapai sisi kanan viewport sepenuhnya. */
+html:has(.dashboard-manrope),
+html:has([data-slot="sidebar-wrapper"]) {
+  scrollbar-gutter: auto;
+}
+
+/* Panel Transition */
+/* Transisi ini diadaptasi dari transitions.dev. */
+:root {
+  --panel-open-dur: 400ms;
+  --panel-close-dur: 350ms;
+  --panel-translate-y: 100px;
+  --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.t-panel-slide {
+  transform: translateY(var(--panel-translate-y));
+  opacity: 0;
+  filter: blur(var(--panel-blur));
+  pointer-events: none;
+  transition:
+    transform var(--panel-close-dur) var(--panel-ease),
+    opacity var(--panel-close-dur) var(--panel-ease),
+    filter var(--panel-close-dur) var(--panel-ease);
+  will-change: transform, opacity, filter;
+}
+.t-panel-slide[data-open="true"] {
+  transform: translateY(0);
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+  transition:
+    transform var(--panel-open-dur) var(--panel-ease),
+    opacity var(--panel-open-dur) var(--panel-ease),
+    filter var(--panel-open-dur) var(--panel-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-panel-slide {
+    transition: none !important;
+  }
+}
+
+/* Skeleton Reveal */
+/* Transisi ini diadaptasi dari transitions.dev. */
+:root {
+  --pulse-dur: 1000ms;
+  --pulse-count: 1;
+  --pulse-min: 0.5;
+  --reveal-dur: 400ms;
+  --reveal-blur: 2px;
+  --reveal-ease: ease-in-out;
+}
+
+.t-skel {
+  position: relative;
+}
+.t-skel-skeleton,
+.t-skel-content {
+  position: absolute;
+  inset: 0;
+}
+
+.t-skel-skeleton {
+  z-index: 1;
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: none;
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    filter var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel-content {
+  z-index: 2;
+  opacity: 0;
+  /* Nilai filter pada wrapper membentuk containing block untuk Radix portal
+     dengan position: fixed. Pada layar sempit, sheet dapat bergeser dari viewport. */
+  filter: none;
+  transition: opacity var(--reveal-dur) var(--reveal-ease);
+}
+.t-skel.is-revealed .t-skel-skeleton {
+  opacity: 0;
+  filter: blur(var(--reveal-blur));
+}
+.t-skel.is-revealed .t-skel-content {
+  opacity: 1;
+  /* `filter: blur(0)` tetap membentuk containing block sehingga elemen landing
+     dengan position: fixed mengikuti document. */
+  filter: none;
+}
+.t-skel.is-resetting .t-skel-skeleton,
+.t-skel.is-resetting .t-skel-content {
+  transition: none !important;
+}
+.t-skel-skeleton.is-pulsing > * {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+@keyframes t-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: var(--pulse-min);
+  }
+}
+
+/* Setelah aplikasi tampil, konten kembali mengikuti document flow. Lapisan pemuatan
+   berada di atasnya hanya selama cross-fade. */
+.global-ui-reveal.is-revealed > .t-skel-content {
+  position: relative;
+  inset: auto;
+}
+.global-skeleton [data-slot="skeleton"] {
+  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+}
+
+/* Motion hanya untuk ikon aksi directional. ArrowUpRight berawal diagonal
+   lalu menjadi horizontal ketika action/card menerima hover atau fokus. */
+.icon-motion-arrow-up-right,
+.icon-motion-arrow-down-right {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 200ms ease-out;
+}
+
+:where(button, a, [role="button"], [data-slot="cutout-card"]):is(
+    :hover,
+    :focus-visible
+  )
+  .icon-motion-arrow-up-right {
+  transform: rotate(45deg);
+}
+
+:where(button, a, [role="button"], [data-slot="cutout-card"]):is(
+    :hover,
+    :focus-visible
+  )
+  .icon-motion-arrow-down-right,
+.icon-motion-arrow-down-right[data-force-motion="true"] {
+  transform: rotate(-45deg);
+}
+
+/* Project Detail */
+/* Saat detail proyek terbuka, navbar disembunyikan dan SiteFrame tetap terlihat
+   di atas overlay. */
+body:has([data-project-detail-overlay]) [data-site-navbar] {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 250ms ease-in-out,
+    visibility 0s linear 250ms;
+}
+
+[data-site-navbar] {
+  transition:
+    opacity 250ms ease-in-out,
+    visibility 0s linear 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-motion-arrow-up-right,
+  .icon-motion-arrow-down-right {
+    transition: none !important;
+  }
+
+  .t-skel-skeleton,
+  .t-skel-content {
+    transition: none !important;
+  }
+  .t-skel-skeleton.is-pulsing > *,
+  .global-skeleton [data-slot="skeleton"] {
+    animation: none !important;
+  }
+}
