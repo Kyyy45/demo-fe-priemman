@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
   CalendarBlank,
-  Eye,
   FolderSimple,
   Globe,
-  Heart,
   MapPin,
   ShareNetwork,
   UserCircle,
@@ -33,6 +31,8 @@ interface PublicCreatorProfileProps {
   creatorId: string;
 }
 
+// Hanya data yang memang dikirim backend (GET /v1/users/public dan
+// /v1/users/public/projects). Email sengaja tidak disimpan/ditampilkan.
 interface CreatorPageData {
   avatarUrl: string;
   name: string;
@@ -46,9 +46,8 @@ interface CreatorPageData {
   workExperience: WorkExperience[];
 }
 
-type ProfileTab = "projects" | "experience";
+type ProfileTab = "projects" | "about";
 
-// Kartu permukaan halaman profil (pola referensi shadcnspace user-profile).
 const PANEL_CLASS =
   "rounded-[var(--radius-feature)] border border-border-subtle bg-surface-raised";
 
@@ -58,12 +57,6 @@ function formatDate(value: string, locale: string, month: "short" | "long") {
   return new Intl.DateTimeFormat(locale, { month, year: "numeric" }).format(
     date,
   );
-}
-
-function compactNumber(value: number, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    notation: value >= 1000 ? "compact" : "standard",
-  }).format(value);
 }
 
 export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
@@ -95,9 +88,13 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
     ])
       .then(([profileResult, projectsResult, feedResult]) => {
         if (!active) return;
+        // Backend hanya memfilter status PUBLISHED; proyek UNLISTED tidak
+        // boleh tampil di profil publik, jadi disaring di sini.
         const listedProjects =
           projectsResult.status === "fulfilled"
-            ? projectsResult.value.projects
+            ? projectsResult.value.projects.filter(
+                (project) => project.visibility === "public",
+              )
             : [];
         const feedProjects =
           feedResult.status === "fulfilled"
@@ -147,22 +144,17 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
     };
   }, [creatorId]);
 
-  const stats = useMemo(
-    () => ({
-      projects: creatorProjects.length,
-      likes: creatorProjects.reduce((sum, item) => sum + item.metrics.likes, 0),
-      views: creatorProjects.reduce((sum, item) => sum + item.metrics.views, 0),
-    }),
-    [creatorProjects],
-  );
-
   if (loading) {
     return (
       <div className="space-y-[var(--grid-gap)]">
-        <Skeleton className="h-[26rem] w-full rounded-[var(--radius-feature)]" />
-        <div className="grid gap-[var(--grid-gap)] m3-large:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-          <Skeleton className="h-72 rounded-[var(--radius-feature)]" />
-          <Skeleton className="h-72 rounded-[var(--radius-feature)]" />
+        <Skeleton className="h-[24rem] w-full rounded-[var(--radius-feature)]" />
+        <div className="grid gap-[var(--grid-gap)] m3-medium:grid-cols-2 m3-expanded:grid-cols-3 m3-large:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton
+              className="aspect-[4/5] rounded-[var(--radius-feature)]"
+              key={index}
+            />
+          ))}
         </div>
       </div>
     );
@@ -201,8 +193,6 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
     title: project.title,
     views: project.metrics.views,
   }));
-  const openProject = (projectId: string) =>
-    router.push(`/explore?project=${encodeURIComponent(projectId)}`);
 
   const shareProfile = async () => {
     try {
@@ -213,31 +203,24 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
     }
   };
 
-  const statItems = [
-    { Icon: FolderSimple, label: strings.profileStats.projects, value: stats.projects },
-    { Icon: Heart, label: strings.profileStats.likes, value: stats.likes },
-    { Icon: Eye, label: strings.profileStats.views, value: stats.views },
-  ];
-  const introRows = [
+  const joined = formatDate(creator.joinAt, locale, "long");
+  const metaItems = [
     creator.company ? { Icon: Briefcase, text: creator.company } : null,
     creator.location ? { Icon: MapPin, text: creator.location } : null,
-    creator.joinAt && formatDate(creator.joinAt, locale, "long")
-      ? {
-          Icon: CalendarBlank,
-          text: strings.joinedOn.replace(
-            "{date}",
-            formatDate(creator.joinAt, locale, "long"),
-          ),
-        }
+    joined
+      ? { Icon: CalendarBlank, text: strings.joinedOn.replace("{date}", joined) }
       : null,
-  ].filter((row): row is { Icon: typeof Briefcase; text: string } => Boolean(row));
+  ].filter((item): item is { Icon: typeof Briefcase; text: string } =>
+    Boolean(item),
+  );
 
   return (
     <>
-      {/* Header profil: cover, avatar di tengah yang menimpa cover, statistik
-          di kiri, aksi di kanan, lalu strip tab — pola referensi shadcnspace. */}
+      {/* Header profil: cover dekoratif, avatar di tengah yang menimpa cover,
+          info singkat di kiri, aksi di kanan, lalu strip tab. Tidak ada
+          statistik — backend tidak punya data followers/statistik profil. */}
       <section className={`${PANEL_CLASS} overflow-hidden`}>
-        <div className="relative h-36 m3-medium:h-52 m3-large:h-64">
+        <div className="relative h-36 m3-medium:h-52 m3-large:h-60">
           <Image
             alt=""
             className="object-cover"
@@ -249,19 +232,17 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
         </div>
 
         <div className="grid gap-5 px-[var(--card-padding)] pb-6 m3-expanded:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] m3-expanded:items-end">
-          <div className="order-2 flex justify-center gap-8 m3-expanded:order-1 m3-expanded:justify-start m3-expanded:pb-2">
-            {statItems.map(({ Icon, label, value }) => (
-              <div className="flex flex-col items-center gap-1" key={label}>
-                <Icon className="size-5 text-copy-secondary" />
-                <span className="type-card-title font-semibold tabular-nums">
-                  {compactNumber(value, locale)}
-                </span>
-                <span className="type-metadata text-copy-secondary">
-                  {label}
-                </span>
-              </div>
+          <ul className="order-2 flex flex-wrap justify-center gap-x-5 gap-y-2 m3-expanded:order-1 m3-expanded:flex-col m3-expanded:items-start m3-expanded:pb-2">
+            {metaItems.map(({ Icon, text }) => (
+              <li
+                className="flex min-w-0 items-center gap-2 type-label text-copy-secondary"
+                key={text}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span className="truncate">{text}</span>
+              </li>
             ))}
-          </div>
+          </ul>
 
           <div className="order-1 -mt-14 flex min-w-0 flex-col items-center text-center m3-medium:-mt-16 m3-expanded:order-2">
             <div className="rounded-full bg-gradient-to-br from-brand via-brand/60 to-chart-1 p-1">
@@ -289,7 +270,7 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
                 href={creator.websiteUrl}
                 rel="noreferrer"
                 target="_blank"
-                title={strings.website}
+                title={creator.websiteUrl.replace(/^https?:\/\//i, "")}
               >
                 <Globe className="size-5" />
               </a>
@@ -317,148 +298,101 @@ export function PublicCreatorProfile({ creatorId }: PublicCreatorProfileProps) {
                 <FolderSimple className="size-4" />
                 {strings.profileTabs.projects}
               </TabsTrigger>
-              <TabsTrigger className="flex-none gap-2 px-3" value="experience">
+              <TabsTrigger className="flex-none gap-2 px-3" value="about">
                 <UserCircle className="size-4" />
-                {strings.profileTabs.experience}
+                {strings.profileTabs.about}
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
       </section>
 
-      <div className="mt-[var(--grid-gap)] grid items-start gap-[var(--grid-gap)] m3-large:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-        {/* Kolom kiri: perkenalan + galeri sampul proyek */}
-        <aside className="space-y-[var(--grid-gap)]">
-          <section className={`${PANEL_CLASS} p-[var(--card-padding)]`}>
-            <h2 className="type-card-title font-semibold">
-              {creator.aboutTitle || strings.introduction}
-            </h2>
-            <p className="mt-2 whitespace-pre-wrap type-label text-copy-secondary">
-              {creator.aboutDescription || strings.noIntroduction}
-            </p>
-            {introRows.length || creator.websiteUrl ? (
-              <ul className="mt-5 space-y-3">
-                {introRows.map(({ Icon, text }) => (
-                  <li className="flex items-center gap-3 type-label" key={text}>
-                    <Icon className="size-5 shrink-0 text-copy-secondary" />
-                    <span className="min-w-0 break-words">{text}</span>
-                  </li>
-                ))}
-                {creator.websiteUrl ? (
-                  <li className="flex items-center gap-3 type-label">
-                    <Globe className="size-5 shrink-0 text-copy-secondary" />
-                    <a
-                      className="min-w-0 truncate hover:underline"
-                      href={creator.websiteUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {creator.websiteUrl.replace(/^https?:\/\//i, "")}
-                    </a>
-                  </li>
-                ) : null}
-              </ul>
-            ) : null}
-          </section>
-
-          {cards.some((card) => card.image) ? (
-            <section className={`${PANEL_CLASS} p-[var(--card-padding)]`}>
-              <h2 className="type-card-title font-semibold">
-                {strings.projectGallery}
-              </h2>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {cards
-                  .filter((card) => card.image)
-                  .slice(0, 9)
-                  .map((card) => (
-                    <button
-                      aria-label={card.title}
-                      className="relative aspect-square overflow-hidden rounded-[var(--radius-control)] bg-surface-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
-                      key={card.id}
-                      onClick={() => openProject(card.id)}
-                      type="button"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        alt=""
-                        className="size-full object-cover transition-transform duration-300 hover:scale-105"
-                        loading="lazy"
-                        src={card.image}
-                      />
-                    </button>
-                  ))}
-              </div>
-            </section>
-          ) : null}
-        </aside>
-
-        {/* Kolom kanan: isi tab */}
-        <section className="min-w-0">
-          {tab === "projects" ? (
-            cards.length ? (
-              <div className="grid min-w-0 gap-[var(--grid-gap)] m3-medium:grid-cols-2">
-                {cards.map((project) => (
-                  <ProjectCard
-                    interactive={false}
-                    key={project.id}
-                    likeAria={strings.like}
-                    onOpen={() => openProject(project.id)}
-                    project={project}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p
-                className={`${PANEL_CLASS} px-6 py-16 text-center type-body text-copy-secondary`}
-              >
-                {strings.noCreatorProjects}
-              </p>
-            )
-          ) : creator.workExperience.length ? (
-            <ol className={`${PANEL_CLASS} divide-y divide-border-subtle`}>
-              {creator.workExperience.map((experience, index) => {
-                const start = formatDate(experience.startDate, locale, "short");
-                const end = experience.isCurrent
-                  ? strings.present
-                  : formatDate(experience.endDate, locale, "short");
-                return (
-                  <li
-                    className="flex gap-4 p-[var(--card-padding)]"
-                    key={`${experience.company}-${experience.title}-${index}`}
-                  >
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-brand/10 text-brand">
-                      <Briefcase className="size-5" weight="duotone" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="type-label font-semibold">
-                        {experience.title}
-                      </p>
-                      <p className="type-label text-copy-secondary">
-                        {experience.company}
-                      </p>
-                      {start || end ? (
-                        <p className="mt-1 type-metadata text-copy-muted">
-                          {[start, end].filter(Boolean).join(" – ")}
-                        </p>
-                      ) : null}
-                      {experience.description ? (
-                        <p className="mt-2 whitespace-pre-wrap type-label text-copy-secondary">
-                          {experience.description}
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
+      <div className="mt-[var(--grid-gap)]">
+        {tab === "projects" ? (
+          cards.length ? (
+            // Grid selebar penuh dengan ukuran kartu yang sama seperti Explore.
+            <div className="grid min-w-0 grid-cols-1 gap-[var(--grid-gap)] m3-medium:grid-cols-2 m3-expanded:grid-cols-3 m3-large:grid-cols-4">
+              {cards.map((project) => (
+                <ProjectCard
+                  interactive={false}
+                  key={project.id}
+                  likeAria={strings.like}
+                  onOpen={() =>
+                    router.push(
+                      `/explore?project=${encodeURIComponent(project.id)}`,
+                    )
+                  }
+                  project={project}
+                />
+              ))}
+            </div>
           ) : (
             <p
               className={`${PANEL_CLASS} px-6 py-16 text-center type-body text-copy-secondary`}
             >
-              {strings.noExperience}
+              {strings.noCreatorProjects}
             </p>
-          )}
-        </section>
+          )
+        ) : (
+          <div className="grid items-start gap-[var(--grid-gap)] m3-large:grid-cols-2">
+            <section className={`${PANEL_CLASS} p-[var(--card-padding)]`}>
+              <h2 className="type-card-title font-semibold">
+                {creator.aboutTitle || strings.introduction}
+              </h2>
+              <p className="mt-2 whitespace-pre-wrap type-label text-copy-secondary">
+                {creator.aboutDescription || strings.noIntroduction}
+              </p>
+            </section>
+
+            <section className={`${PANEL_CLASS} p-[var(--card-padding)]`}>
+              <h2 className="type-card-title font-semibold">
+                {strings.experience}
+              </h2>
+              {creator.workExperience.length ? (
+                <ol className="mt-4 space-y-5">
+                  {creator.workExperience.map((experience, index) => {
+                    const start = formatDate(experience.startDate, locale, "short");
+                    const end = experience.isCurrent
+                      ? strings.present
+                      : formatDate(experience.endDate, locale, "short");
+                    return (
+                      <li
+                        className="flex gap-4"
+                        key={`${experience.company}-${experience.title}-${index}`}
+                      >
+                        <span className="flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-control)] bg-brand/10 text-brand">
+                          <Briefcase className="size-5" weight="duotone" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="type-label font-semibold">
+                            {experience.title}
+                          </p>
+                          <p className="type-label text-copy-secondary">
+                            {experience.company}
+                          </p>
+                          {start || end ? (
+                            <p className="mt-1 type-metadata text-copy-muted">
+                              {[start, end].filter(Boolean).join(" – ")}
+                            </p>
+                          ) : null}
+                          {experience.description ? (
+                            <p className="mt-2 whitespace-pre-wrap type-label text-copy-secondary">
+                              {experience.description}
+                            </p>
+                          ) : null}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <p className="mt-2 type-label text-copy-secondary">
+                  {strings.noExperience}
+                </p>
+              )}
+            </section>
+          </div>
+        )}
       </div>
     </>
   );

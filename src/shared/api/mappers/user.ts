@@ -268,11 +268,11 @@ export function parseCurrentUser(bytes: Uint8Array): CurrentUser {
   };
 }
 
-// Decoder `UserProfileAggregate` untuk profil public. Handler backend membungkus
-// profile pada field 1 dan work experiences pada field 2.
+// Decoder `UserProfile` (user.proto) untuk profil public. Handler backend
+// mengembalikan message ini langsung — field datar 1–15 dan work experience
+// berulang di field 16 — bukan dibungkus di field 1 seperti asumsi lama.
 export function parsePublicUserProfile(bytes: Uint8Array): PublicUserProfile {
-  const root = decodeMessage(bytes);
-  const profile = decodeMessage(asBytes(getField(root, 1) ?? new Uint8Array()));
+  const profile = decodeMessage(bytes);
   return {
     id: objectIdField(profile, 1),
     email: stringField(profile, 2),
@@ -289,7 +289,7 @@ export function parsePublicUserProfile(bytes: Uint8Array): PublicUserProfile {
     aboutTitle: stringField(profile, 13),
     aboutDescription: stringField(profile, 14),
     joinAt: stringField(profile, 15),
-    workExperience: getRepeatedMessages(root, 2).map(parseWorkExperience),
+    workExperience: getRepeatedMessages(profile, 16).map(parseWorkExperience),
   };
 }
 
