@@ -151,6 +151,44 @@ const EDITOR_PORTAL_SELECTOR =
 const elementOf = (node: Node | null) =>
   node instanceof Element ? node : (node?.parentElement ?? null);
 
+// Seleksi sebagai offset karakter teks di dalam editor. Sanitizer hanya
+// mengubah tag/atribut, bukan teks, jadi offset ini tetap menunjuk ke huruf
+// yang sama setelah innerHTML diganti dengan hasil sanitasi.
+function selectionOffsets(root: HTMLElement, range: Range) {
+  const measure = (container: Node, offset: number) => {
+    const prefix = document.createRange();
+    prefix.selectNodeContents(root);
+    prefix.setEnd(container, offset);
+    return prefix.toString().length;
+  };
+  return {
+    start: measure(range.startContainer, range.startOffset),
+    end: measure(range.endContainer, range.endOffset),
+  };
+}
+
+function rangeFromOffsets(root: HTMLElement, start: number, end: number) {
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let consumed = 0;
+  let startSet = false;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const length = node.textContent?.length ?? 0;
+    if (!startSet && start <= consumed + length) {
+      range.setStart(node, start - consumed);
+      startSet = true;
+    }
+    if (startSet && end <= consumed + length) {
+      range.setEnd(node, end - consumed);
+      break;
+    }
+    consumed += length;
+  }
+  return range;
+}
+
 // Gaya teks dari block-nya; caption = <p data-style="caption">.
 function styleOfBlock(block: Element | null | undefined): TextStyle {
   if (block?.tagName === "H1") return "heading";
@@ -568,8 +606,14 @@ function RichTextBlockEditor({
   } | null>(null);
 
   useEffect(() => {
-    if (!editorRef.current) return;
-    editorRef.current.innerHTML = sanitizeRichText(block.text);
+    const editor = editorRef.current;
+    if (!editor) return;
+    // block.text berubah juga karena commit() dari editor ini sendiri; menulis
+    // ulang innerHTML yang identik tetap membuat ulang semua node DOM dan
+    // menghapus seleksi user, jadi hanya tulis bila isinya memang berbeda.
+    const safe = sanitizeRichText(block.text);
+    if (editor.innerHTML === safe) return;
+    editor.innerHTML = safe;
     rangeRef.current = null;
   }, [block.id, block.text]);
 
@@ -626,10 +670,32 @@ function RichTextBlockEditor({
     selection?.addRange(rangeRef.current);
   };
   const commit = () => {
-    if (!editorRef.current) return;
-    const safe = sanitizeRichText(editorRef.current.innerHTML);
-    if (editorRef.current.innerHTML !== safe)
-      editorRef.current.innerHTML = safe;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const safe = sanitizeRichText(editor.innerHTML);
+    if (editor.innerHTML !== safe) {
+      // Mengganti innerHTML memutus seleksi; simpan sebagai offset teks lalu
+      // pasang kembali supaya teks tetap terblok untuk perubahan berikutnya.
+      const selection = window.getSelection();
+      const live = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      const range =
+        live && editor.contains(live.commonAncestorContainer)
+          ? live
+          : rangeRef.current;
+      const offsets =
+        range && editor.contains(range.commonAncestorContainer)
+          ? selectionOffsets(editor, range)
+          : null;
+      editor.innerHTML = safe;
+      if (offsets) {
+        const restored = rangeFromOffsets(editor, offsets.start, offsets.end);
+        rangeRef.current = restored.cloneRange();
+        if (document.activeElement === editor) {
+          selection?.removeAllRanges();
+          selection?.addRange(restored);
+        }
+      }
+    }
     onChange({ ...block, text: safe });
   };
   const finishOrRemoveEmpty = () => {
