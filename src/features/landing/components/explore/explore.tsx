@@ -7,11 +7,13 @@ import { useT } from "@/shared/providers/language-provider";
 import { FilterPalette } from "@/features/landing/components/explore/filter-palette";
 import { type Project } from "@/shared/lib/types/explore";
 import { type SortId } from "@/shared/lib/types/explore";
+import type { Project as ApiProject } from "@/shared/lib/types/project";
 import { ProjectDetailOverlay } from "@/shared/components/project-detail-overlay";
 import { ProjectCard } from "@/shared/components/project-card";
 import { PrimaryActionLink } from "@/features/landing/components/shared/primary-action-link";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { projectService } from "@/shared/api/project";
+import { loadPublicFeed } from "@/shared/api/public-feed";
 import { toExploreProject } from "@/shared/api/mappers/explore-project";
 import { useProjectFeed } from "@/features/landing/hooks/use-project-feed";
 import { sameTag, uniqueTags } from "@/shared/lib/tags";
@@ -70,9 +72,14 @@ export function Explore({
       void projectService
         .get(projectId, true)
         .then((freshProject) => {
+          // Detail backend dilayani dari cache tanpa invalidasi, jadi metrik
+          // like/save/view-nya bisa jauh tertinggal. Metrik dari feed (dibaca
+          // langsung dari database) dipertahankan agar angka tidak mundur.
           setApiProjects((current) =>
             current.map((item) =>
-              item.id === freshProject.id ? freshProject : item,
+              item.id === freshProject.id
+                ? { ...freshProject, metrics: item.metrics }
+                : item,
             ),
           );
         })
@@ -215,19 +222,7 @@ export function Explore({
       ? liked.filter((value) => value !== id)
       : [...liked, id];
     setLiked(next);
-    setApiProjects((items) =>
-      items.map((project) =>
-        project.id === id
-          ? {
-              ...project,
-              metrics: {
-                ...project.metrics,
-                likes: Math.max(0, project.metrics.likes + (wasLiked ? -1 : 1)),
-              },
-            }
-          : project,
-      ),
-    );
+    adjustMetric(id, "likes", wasLiked ? -1 : 1);
     try {
       await (wasLiked
         ? projectActionService.unlike(id)
@@ -240,22 +235,7 @@ export function Explore({
             : [...current, id]
           : current.filter((value) => value !== id),
       );
-      setApiProjects((items) =>
-        items.map((project) =>
-          project.id === id
-            ? {
-                ...project,
-                metrics: {
-                  ...project.metrics,
-                  likes: Math.max(
-                    0,
-                    project.metrics.likes + (wasLiked ? 1 : -1),
-                  ),
-                },
-              }
-            : project,
-        ),
-      );
+      adjustMetric(id, "likes", wasLiked ? 1 : -1);
     } finally {
       pendingActionsRef.current.delete(pendingKey);
     }
@@ -274,6 +254,7 @@ export function Explore({
       ? saved.filter((value) => value !== id)
       : [...saved, id];
     setSaved(next);
+    adjustMetric(id, "saves", wasSaved ? -1 : 1);
     try {
       await (wasSaved
         ? projectActionService.unsave(id)
@@ -286,6 +267,7 @@ export function Explore({
             : [...current, id]
           : current.filter((value) => value !== id),
       );
+      adjustMetric(id, "saves", wasSaved ? 1 : -1);
     } finally {
       pendingActionsRef.current.delete(pendingKey);
     }
@@ -310,12 +292,22 @@ export function Explore({
     if (mode !== "dynamic" || !selectedProjectId || isLoading || feedProject)
       return;
     let active = true;
-    projectService.get(selectedProjectId).then(
-      (project) => {
+    // Metrik detail dari backend dilayani dari cache yang tidak pernah
+    // diperbarui; bila proyek ada di feed publik yang lebih panjang, angka
+    // like/save/view diambil dari sana.
+    Promise.all([
+      projectService.get(selectedProjectId),
+      loadPublicFeed().catch(() => []),
+    ]).then(
+      ([project, feed]) => {
+        const listed = feed.find((item) => item.id === project.id);
         if (active)
           setDirectProject({
             id: selectedProjectId,
-            project: toExploreProject(project, PROJECT_AGE_REFERENCE),
+            project: toExploreProject(
+              listed ? { ...project, metrics: listed.metrics } : project,
+              PROJECT_AGE_REFERENCE,
+            ),
           });
       },
       () => {
@@ -334,6 +326,32 @@ export function Explore({
           ? directProject.project
           : null))
       : staticSelectedProject;
+
+  // Memperbarui angka like/save secara optimis, baik untuk project di feed
+  // maupun project yang dimuat langsung lewat `?project=` di luar feed.
+  function adjustMetric(id: string, key: "likes" | "saves", delta: number) {
+    const bump = (project: ApiProject): ApiProject => ({
+      ...project,
+      metrics: {
+        ...project.metrics,
+        [key]: Math.max(0, project.metrics[key] + delta),
+      },
+    });
+    setApiProjects((items) =>
+      items.map((project) => (project.id === id ? bump(project) : project)),
+    );
+    setDirectProject((current) =>
+      current?.project?.source && current.project.id === id
+        ? {
+            ...current,
+            project: toExploreProject(
+              bump(current.project.source),
+              PROJECT_AGE_REFERENCE,
+            ),
+          }
+        : current,
+    );
+  }
 
   // Memuat detail segar sekaligus mencatat view untuk project dari feed
   // (project yang dimuat langsung di atas sudah merupakan data segar).
