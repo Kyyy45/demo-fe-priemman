@@ -693,11 +693,86 @@ function RichTextBlockEditor({
     // size="7">, lalu kita ganti atribut size itu dengan style pixel yang
     // presisi sesuai pilihan user. sanitizeRichText (dipanggil dari commit)
     // sudah di-update supaya style font-size ini tidak ikut ke-strip.
+    const editor = editorRef.current;
+    // Teks yang baru diketik belum punya blok (langsung di dalam editor), jadi
+    // tidak ada blok yang bisa menerima ukuran di bawah. Bungkus dulu sebagai
+    // paragraf — sama dengan memilih gaya "Paragraph".
+    // Hanya bila seleksi tidak mengenai heading/subheading/caption, karena
+    // formatBlock mengubah SEMUA blok yang terkena menjadi <p>.
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (editor && range) {
+      const touched = Array.from(editor.childNodes).filter(
+        (node) => range.intersectsNode(node) && node.textContent?.trim(),
+      );
+      const isPlainBlock = (node: ChildNode) =>
+        node instanceof HTMLElement &&
+        (node.tagName === "DIV" ||
+          (node.tagName === "P" && !node.hasAttribute("data-style")));
+      const hasLooseText = touched.some(
+        (node) =>
+          !(node instanceof HTMLElement && node.matches(BLOCK_SELECTOR)),
+      );
+      const onlyPlainText = touched.every(
+        (node) =>
+          isPlainBlock(node) ||
+          !(node instanceof HTMLElement && node.matches(BLOCK_SELECTOR)),
+      );
+      if (hasLooseText && onlyPlainText)
+        document.execCommand("formatBlock", false, "<p>");
+    }
     document.execCommand("fontSize", false, "7");
-    editorRef.current?.querySelectorAll('font[size="7"]').forEach((node) => {
+    const marked = Array.from(
+      editor?.querySelectorAll<HTMLElement>('font[size="7"]') ?? [],
+    );
+    marked.forEach((node) => {
       node.removeAttribute("size");
-      (node as HTMLElement).style.fontSize = `${nextSize}px`;
+      node.style.fontSize = `${nextSize}px`;
     });
+    // Ukuran inline tidak mengubah tinggi baris blok induknya: teks 20px di
+    // dalam <h1> (2em = 40px) tetap duduk di baris setinggi heading. Bila
+    // seluruh teks sebuah blok ikut terpilih, ukuran dipasang di blok itu
+    // sendiri dan pembungkus <font>-nya dilepas, sehingga tinggi baris ikut.
+    const blocks = new Set(
+      marked
+        .map((node) => node.parentElement?.closest<HTMLElement>(BLOCK_SELECTOR))
+        .filter(
+          (block): block is HTMLElement =>
+            !!block && block !== editor && editor?.contains(block) === true,
+        ),
+    );
+    blocks.forEach((block) => {
+      const inBlock = marked.filter(
+        (node) => node.parentElement?.closest(BLOCK_SELECTOR) === block,
+      );
+      const coveredText = inBlock.map((node) => node.textContent).join("");
+      if (coveredText.trim() !== (block.textContent ?? "").trim()) return;
+      block.style.fontSize = `${nextSize}px`;
+      inBlock.forEach((node) => {
+        node.style.removeProperty("font-size");
+        if (!node.getAttribute("style")) node.removeAttribute("style");
+        if (!node.attributes.length)
+          node.replaceWith(...Array.from(node.childNodes));
+      });
+    });
+    // Pembungkus yang dilepas memutus seleksi; pilih ulang rentang yang sama
+    // supaya perubahan berikutnya (warna, bold, ukuran lain) tetap mengena.
+    // Urutan `blocks` mengikuti `marked`, jadi blok pertama/terakhir adalah
+    // tempat penanda pertama/terakhir berada.
+    const first = marked[0];
+    const last = marked[marked.length - 1];
+    const firstBlock = Array.from(blocks)[0];
+    const lastBlock = Array.from(blocks).at(-1);
+    if (first && last && firstBlock && lastBlock) {
+      const range = document.createRange();
+      if (first.isConnected) range.setStartBefore(first);
+      else range.setStart(firstBlock, 0);
+      if (last.isConnected) range.setEndAfter(last);
+      else range.setEnd(lastBlock, lastBlock.childNodes.length);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
     rememberSelection();
     commit();
   };
@@ -1035,7 +1110,7 @@ function RichTextBlockEditor({
           // Bukan type-body: kelas itu membawa max-inline-size 65ch yang
           // memotong lebar teks jauh di bawah lebar toolbar.
           RICH_TEXT_CLASS,
-          "min-h-12 w-full px-2 py-1.5 outline-none empty:before:pointer-events-none empty:before:opacity-40 empty:before:content-[attr(data-placeholder)]",
+          "w-full px-2 py-1.5 outline-none empty:before:pointer-events-none empty:before:opacity-40 empty:before:content-[attr(data-placeholder)]",
           // border-current mengikuti warna teks canvas, jadi tetap terlihat
           // di canvas terang maupun gelap (dulu border-on-dark = putih).
           isEditing
