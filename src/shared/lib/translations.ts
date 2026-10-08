@@ -570,11 +570,13 @@ export const translations = {
           closePreview: "Back to editing",
           embedTitle: "Embed media",
           embedDescription:
-            "Paste a link from YouTube, Vimeo, Spotify, SoundCloud, Figma, or CodePen.",
+            "Paste a link from YouTube, Vimeo, Spotify, SoundCloud, Figma, CodePen, Google Drive (files, Docs, Slides, Sheets), or a Cloudinary video.",
           embedUrl: "Link",
           embedPlaceholder: "https://www.youtube.com/watch?v=...",
           embedInvalid:
-            "This link isn't supported. Use YouTube, Vimeo, Spotify, SoundCloud, Figma, or CodePen.",
+            "This link isn't supported. Use YouTube, Vimeo, Spotify, SoundCloud, Figma, CodePen, a single Google Drive file or Docs/Slides/Sheets (not a folder), or a Cloudinary video. Add images with the Image block.",
+          embedDriveNote:
+            "Google Drive files only show if they're shared as “Anyone with the link”. Anyone who gets that link can open the original file, so only embed files you're happy to make public.",
           embedAdd: "Embed",
           addGridImages: "Add images to grid",
           removeGridImage: "Remove image from grid",
@@ -1516,11 +1518,13 @@ export const translations = {
           closePreview: "Kembali mengedit",
           embedTitle: "Sematkan media",
           embedDescription:
-            "Tempel tautan dari YouTube, Vimeo, Spotify, SoundCloud, Figma, atau CodePen.",
+            "Tempel tautan dari YouTube, Vimeo, Spotify, SoundCloud, Figma, CodePen, Google Drive (file, Docs, Slides, Sheets), atau video Cloudinary.",
           embedUrl: "Tautan",
           embedPlaceholder: "https://www.youtube.com/watch?v=...",
           embedInvalid:
-            "Tautan ini belum didukung. Gunakan YouTube, Vimeo, Spotify, SoundCloud, Figma, atau CodePen.",
+            "Tautan ini belum didukung. Gunakan YouTube, Vimeo, Spotify, SoundCloud, Figma, CodePen, satu file Google Drive atau Docs/Slides/Sheets (bukan folder), atau video Cloudinary. Untuk gambar, gunakan blok Gambar.",
+          embedDriveNote:
+            "File Google Drive hanya tampil jika dibagikan sebagai “Siapa saja yang memiliki link”. Siapa pun yang mendapat link itu bisa membuka file aslinya, jadi sematkan hanya file yang memang boleh dilihat publik.",
           embedAdd: "Sematkan",
           addGridImages: "Tambah gambar ke grid",
           removeGridImage: "Hapus gambar dari grid",

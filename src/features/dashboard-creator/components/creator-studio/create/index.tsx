@@ -124,6 +124,7 @@ import {
 import { InsertContentSlot } from "./insert-content-slot";
 import {
   EMBED_FRAME_CLASS,
+  isGoogleDriveUrl,
   normalizeEmbedUrl,
   toEmbedSource,
 } from "@/shared/lib/embed";
@@ -3127,6 +3128,13 @@ export function CreateProjectWizard({
             {embedDialog?.invalid ? (
               <p className="type-metadata text-danger" role="alert">
                 {s.editor.embedInvalid}
+              </p>
+            ) : null}
+            {/* File Drive hanya tampil bila dibagikan ke publik; ingatkan
+                creator sebelum dokumen pribadi ikut terbuka lewat embed. */}
+            {embedDialog && isGoogleDriveUrl(embedDialog.url) ? (
+              <p className="rounded-[var(--radius-control)] bg-surface-muted px-3 py-2 type-metadata text-copy-secondary">
+                {s.editor.embedDriveNote}
               </p>
             ) : null}
             <DialogFooter className="gap-2 pt-2">

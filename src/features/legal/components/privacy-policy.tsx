@@ -33,7 +33,7 @@ function PrivacyPolicyEn() {
       intro="This Privacy Policy explains how Priemman (“Priemman”, “we”, “us”) accesses, uses, stores, shares, and protects information when you use the Priemman website and services, including information we receive when you sign in with Google."
       lang="en"
       title="Privacy Policy"
-      updated="October 8, 2026"
+      updated="October 9, 2026"
     >
       <LegalSection id="information-we-collect" title="Information we collect">
         <P>We collect information you provide directly when you create an account, complete your profile, publish projects, upload media, request creator access, or contact us. This may include your name, email address, headline, company, city and country, website, about text, work experience, avatar, projects, media, collections, likes, and saves.</P>
@@ -91,6 +91,11 @@ function PrivacyPolicyEn() {
         </List>
       </LegalSection>
 
+      <LegalSection id="embedded-content" title="Embedded content from other services">
+        <P>Projects may include content that creators embed from third-party services: YouTube, Vimeo, Spotify, SoundCloud, Figma, CodePen, Google Drive (files, Docs, Slides, and Sheets), and Cloudinary. When you view a project that contains embedded content, it is loaded directly from that service, which may receive your IP address and browser information, set cookies, and collect usage data under its own privacy policy. YouTube videos are loaded in YouTube’s privacy-enhanced mode (youtube-nocookie.com).</P>
+        <P>Priemman does not control these services and does not share your account information with them. Creators are responsible for the content they embed; a Google Drive file only appears when its owner has shared it as “Anyone with the link”, which means anyone with that link can open the original file.</P>
+      </LegalSection>
+
       <LegalSection id="security" title="How we protect your data">
         <List>
           <li>All traffic between your browser and Priemman is encrypted in transit using HTTPS (TLS).</li>
@@ -129,7 +134,7 @@ function PrivacyPolicyId() {
       intro="Kebijakan Privasi ini menjelaskan bagaimana Priemman (“Priemman”, “kami”) mengakses, menggunakan, menyimpan, membagikan, dan melindungi informasi saat Anda menggunakan situs dan layanan Priemman, termasuk informasi yang kami terima saat Anda masuk dengan Google."
       lang="id"
       title="Kebijakan Privasi"
-      updated="8 Oktober 2026"
+      updated="9 Oktober 2026"
     >
       <LegalSection id="information-we-collect" title="Informasi yang kami kumpulkan">
         <P>Kami mengumpulkan informasi yang Anda berikan secara langsung saat membuat akun, melengkapi profil, menerbitkan proyek, mengunggah media, mengajukan akses kreator, atau menghubungi kami. Informasi ini dapat mencakup nama, alamat email, headline, perusahaan, kota dan negara, situs web, teks tentang diri Anda, pengalaman kerja, avatar, proyek, media, koleksi, suka, dan simpanan.</P>
@@ -185,6 +190,11 @@ function PrivacyPolicyId() {
           <li><Strong>Kewajiban hukum.</Strong> Kami dapat mengungkapkan informasi bila diwajibkan oleh hukum, atau bila diperlukan untuk melindungi hak, keselamatan, dan keamanan pengguna serta layanan kami.</li>
           <li><Strong>Pengalihan usaha.</Strong> Jika Priemman terlibat dalam merger atau akuisisi, informasi dapat dialihkan dengan tetap tunduk pada kebijakan ini, dan kami akan memberi tahu Anda sebelum data Anda tunduk pada kebijakan yang berbeda.</li>
         </List>
+      </LegalSection>
+
+      <LegalSection id="embedded-content" title="Konten yang disematkan dari layanan lain">
+        <P>Proyek dapat memuat konten yang disematkan creator dari layanan pihak ketiga: YouTube, Vimeo, Spotify, SoundCloud, Figma, CodePen, Google Drive (file, Docs, Slides, dan Sheets), dan Cloudinary. Saat Anda membuka proyek yang memuat konten tersemat, konten tersebut dimuat langsung dari layanan itu, yang dapat menerima alamat IP dan informasi browser Anda, memasang cookie, serta mengumpulkan data penggunaan berdasarkan kebijakan privasinya sendiri. Video YouTube dimuat dalam mode privasi yang ditingkatkan (youtube-nocookie.com).</P>
+        <P>Priemman tidak mengendalikan layanan tersebut dan tidak membagikan informasi akun Anda kepada mereka. Creator bertanggung jawab atas konten yang mereka sematkan; file Google Drive hanya tampil bila pemiliknya membagikannya sebagai “Siapa saja yang memiliki link”, artinya siapa pun yang memiliki link itu dapat membuka file aslinya.</P>
       </LegalSection>
 
       <LegalSection id="security" title="Cara kami melindungi data Anda">
