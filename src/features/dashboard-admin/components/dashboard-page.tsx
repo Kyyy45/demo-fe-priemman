@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react";
+import { DashboardErrorScreen } from "@/shared/components/error-pages";
 import { toast } from "sonner";
 
 import { AccountSettings } from "@/shared/layout/dashboard/account";
@@ -36,7 +36,6 @@ import {
   redirectToRoleDashboard,
 } from "@/shared/lib/dashboard-role-routing";
 import { useLanguage } from "@/shared/providers/language-provider";
-import { Button } from "@/shared/ui/button";
 
 const dashboardSections = {
   Dashboard: "overview",
@@ -155,7 +154,7 @@ export function AdminDashboardPage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [preview, setPreview] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [calendar, setCalendar] = useState<CalendarWorkspace | null>(null);
   const [requests, setRequests] = useState<UpgradeQueue>(EMPTY_QUEUE);
@@ -251,7 +250,7 @@ export function AdminDashboardPage() {
         if (process.env.NODE_ENV !== "production") applyPreview();
         else {
           setCurrentUser(null);
-          setLoadError(errorMessage(error, copy.feedback.loadError));
+          setLoadError(error);
         }
       } finally {
         if (active) setLoading(false);
@@ -393,31 +392,13 @@ export function AdminDashboardPage() {
 
   if (!currentUser) {
     return (
-      <main className="dashboard-manrope grid min-h-dvh place-items-center bg-canvas p-[var(--page-gutter)]">
-        <section className="w-full max-w-md rounded-[var(--radius-card)] border border-border-subtle bg-surface-container-low p-[var(--panel-padding)] text-center">
-          <WarningCircle
-            className="mx-auto size-8 text-warning"
-            weight="fill"
-          />
-          <h1 className="dashboard-page-title mt-4">
-            {t.dashboardUser.overview.unavailableTitle}
-          </h1>
-          <p className="dashboard-body mt-2">
-            {loadError ?? t.dashboardUser.overview.unavailableDescription}
-          </p>
-          <Button
-            className="mt-6 !h-11 !min-h-11"
-            onClick={() => {
-              setLoading(true);
-              setRetryKey((value) => value + 1);
-            }}
-            type="button"
-          >
-            <ArrowClockwise className="size-4" weight="bold" />
-            {copy.retry}
-          </Button>
-        </section>
-      </main>
+      <DashboardErrorScreen
+        error={loadError}
+        onRetry={() => {
+          setLoading(true);
+          setRetryKey((value) => value + 1);
+        }}
+      />
     );
   }
 

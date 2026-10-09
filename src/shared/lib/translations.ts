@@ -950,6 +950,27 @@ export const translations = {
         { label: "Privacy", href: "/privacy-policy" },
       ],
     },
+    errorPage: {
+      notFoundTitle: "The page you requested cannot be found.",
+      notFoundDescription:
+        "The link may be broken, or the page could have been taken down or renamed.",
+      errorCode: "Oops",
+      errorTitle: "Something went wrong.",
+      errorDescription:
+        "An unexpected error stopped this page from loading. Try again, or head back home.",
+      offlineCode: "Offline",
+      offlineTitle: "Can’t reach Priemman right now.",
+      offlineDescription:
+        "Check your internet connection and try again. If you’re online, our server may be temporarily down.",
+      serverTitle: "Our server ran into a problem.",
+      serverDescription:
+        "This one is on us, not you. Please try again in a moment.",
+      dashboardTitle: "Your dashboard couldn’t be loaded.",
+      dashboardDescription:
+        "We couldn’t load your account details. Try again, or head back home.",
+      goHome: "Go back home",
+      retry: "Try again",
+    },
   },
   id: {
     nav: {
@@ -1900,6 +1921,27 @@ export const translations = {
         { label: "Ketentuan", href: "/terms" },
         { label: "Privasi", href: "/privacy-policy" },
       ],
+    },
+    errorPage: {
+      notFoundTitle: "Halaman yang Anda cari tidak ditemukan.",
+      notFoundDescription:
+        "Tautannya mungkin rusak, atau halaman tersebut sudah dihapus atau dipindahkan.",
+      errorCode: "Oops",
+      errorTitle: "Terjadi kesalahan.",
+      errorDescription:
+        "Ada kesalahan tak terduga yang membuat halaman ini gagal dimuat. Coba lagi, atau kembali ke beranda.",
+      offlineCode: "Offline",
+      offlineTitle: "Priemman tidak bisa dijangkau saat ini.",
+      offlineDescription:
+        "Periksa koneksi internet Anda lalu coba lagi. Jika internet Anda normal, server kami mungkin sedang tidak tersedia sementara.",
+      serverTitle: "Server kami sedang bermasalah.",
+      serverDescription:
+        "Ini kesalahan dari pihak kami, bukan Anda. Silakan coba lagi sebentar lagi.",
+      dashboardTitle: "Dashboard Anda gagal dimuat.",
+      dashboardDescription:
+        "Kami tidak dapat memuat detail akun Anda. Coba lagi, atau kembali ke beranda.",
+      goHome: "Kembali ke beranda",
+      retry: "Coba lagi",
     },
   },
 };

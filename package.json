@@ -17,6 +17,7 @@
     "cn": "^0.4.0",
     "date-fns": "^4.4.0",
     "embla-carousel-react": "^8.6.0",
+    "geist": "^1.7.2",
     "gsap": "^3.12.7",
     "input-otp": "^1.5.0",
     "lucide-react": "^1.51.0",

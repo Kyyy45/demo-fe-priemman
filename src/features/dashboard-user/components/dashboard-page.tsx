@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DashboardErrorScreen } from "@/shared/components/error-pages";
 import {
-  ArrowClockwise,
   Briefcase,
-  WarningCircle,
 } from "@phosphor-icons/react";
 import { enUS, id } from "date-fns/locale";
 import { toast } from "sonner";
@@ -35,9 +34,9 @@ import { DashboardLoading } from "@/shared/layout/dashboard/dashboard-loading";
 import { DashboardFolderCard } from "@/shared/layout/dashboard/folder-card";
 import { useDashboardNavigation } from "@/shared/layout/dashboard/use-dashboard-navigation";
 import { useLanguage } from "@/shared/providers/language-provider";
-import { Button } from "@/shared/ui/button";
 import { Calendar08 } from "@/shared/ui/shadcn-space/calendar-08";
 import { Table01 } from "@/shared/ui/shadcn-space/table-01";
+import { Button } from "@/shared/ui/button";
 import {
   Table,
   TableBody,
@@ -416,7 +415,7 @@ export function UserDashboardPage() {
   const [libraryCounts, setLibraryCounts] = useState({ liked: 0, saved: 0 });
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const [retryKey, setRetryKey] = useState(0);
 
   // 5. Profil membuka dashboard; data sekunder tidak boleh menahan shell selamanya.
@@ -497,12 +496,7 @@ export function UserDashboardPage() {
           );
           return;
         }
-        setLoadError(
-          getErrorMessage(
-            error,
-            t.dashboardUser.overview.unavailableDescription,
-          ),
-        );
+        setLoadError(error);
       } finally {
         if (active) setLoading(false);
       }
@@ -571,28 +565,10 @@ export function UserDashboardPage() {
 
   if (!user) {
     return (
-      <main className="dashboard-manrope grid min-h-dvh place-items-center bg-canvas p-[var(--page-gutter)]">
-        <section className="w-full max-w-md rounded-[var(--radius-card)] border border-border-subtle bg-surface-container-low p-[var(--panel-padding)] text-center">
-          <WarningCircle
-            className="mx-auto size-8 text-warning"
-            weight="fill"
-          />
-          <h1 className="dashboard-page-title mt-4">
-            {t.dashboardUser.overview.unavailableTitle}
-          </h1>
-          <p className="dashboard-body mt-2">
-            {loadError ?? t.dashboardUser.overview.unavailableDescription}
-          </p>
-          <Button
-            className="mt-6 !h-11 !min-h-11"
-            onClick={() => setRetryKey((value) => value + 1)}
-            type="button"
-          >
-            <ArrowClockwise className="size-4" weight="bold" />
-            Retry
-          </Button>
-        </section>
-      </main>
+      <DashboardErrorScreen
+        error={loadError}
+        onRetry={() => setRetryKey((value) => value + 1)}
+      />
     );
   }
 
