@@ -215,6 +215,12 @@ function isFullBleed(block: EditorBlock | undefined) {
 const CREATE_PROJECT_OPEN_KEY = "priemman:create-project:open";
 const CREATE_PROJECT_RECOVERY_KEY = "priemman:create-project:recovery:v1";
 
+// Waktu history.back() terakhir yang dipanggil editor sendiri untuk membuang
+// entri history-nya saat ditutup. popstate hasil panggilan itu datang secara
+// asinkron dan bisa tiba setelah editor dibuka lagi; tanpa penanda ini ia
+// terbaca sebagai "user menekan Back" dan langsung menutup editor baru.
+let editorHistoryBackAt = 0;
+
 // Batas dari backend: ProjectInput.content maksimal 1 MB (isExceeding1MB,
 // dihitung dalam byte UTF-8).
 const MAX_CONTENT_BYTES = 1024 * 1024;
@@ -1380,6 +1386,7 @@ export function CreateProjectWizard({
   );
   const [editorReady, setEditorReady] = useState(false);
   const [recoveryDialogOpen, setRecoveryDialogOpen] = useState(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [recoveryHadPendingMedia, setRecoveryHadPendingMedia] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [activeInsertIndex, setActiveInsertIndex] = useState<number | null>(
@@ -1706,9 +1713,64 @@ export function CreateProjectWizard({
   };
 
   const setOpen = (value: boolean) => {
+    // Editor yang ditutup (mis. setelah disimpan dari dialog keluar) tidak
+    // boleh membawa dialog itu saat dibuka lagi.
+    if (!value) setLeaveDialogOpen(false);
     if (controlledOpen === undefined) setInternalOpen(value);
     onOpenChange?.(value);
   };
+
+  // Keluar dari editor lewat tombol di dalam aplikasi memakai dialog
+  // Priemman. Dialog bawaan browser (beforeunload di atas) hanya untuk reload
+  // dan tutup tab, karena tampilannya memang tidak bisa diubah situs.
+  const requestClose = () => {
+    if (hasUnsavedChanges) setLeaveDialogOpen(true);
+    else setOpen(false);
+  };
+  const discardAndClose = () => {
+    if (!project) sessionStorage.removeItem(CREATE_PROJECT_RECOVERY_KEY);
+    setLeaveDialogOpen(false);
+    setOpen(false);
+  };
+
+  // Tombol Back browser: editor tidak punya URL sendiri, jadi Back langsung
+  // meninggalkan halaman tanpa peringatan apa pun. Satu entri history
+  // ditambahkan saat editor terbuka; Back yang keluar dari entri itu
+  // memunculkan dialog yang sama (atau langsung menutup editor bila tidak ada
+  // perubahan). Entri bertanda `priemmanEditor` yang tersisa — mis. dari
+  // effect ganda Strict Mode — bukan navigasi keluar, jadi diabaikan.
+  const unsavedRef = useRef(hasUnsavedChanges);
+  const closeRef = useRef(setOpen);
+  useEffect(() => {
+    unsavedRef.current = hasUnsavedChanges;
+    closeRef.current = setOpen;
+  });
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return;
+    const marker = { priemmanEditor: true };
+    window.history.pushState(marker, "");
+    const onPopState = (event: PopStateEvent) => {
+      if (Date.now() - editorHistoryBackAt < 1500) {
+        editorHistoryBackAt = 0;
+        return;
+      }
+      if (event.state?.priemmanEditor) return;
+      if (unsavedRef.current) {
+        window.history.pushState(marker, "");
+        setLeaveDialogOpen(true);
+      } else {
+        closeRef.current(false);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (window.history.state?.priemmanEditor) {
+        editorHistoryBackAt = Date.now();
+        window.history.back();
+      }
+    };
+  }, [open]);
 
   // Menyiapkan asset canvas dan thumbnail project
   const assetMap = useMemo(
@@ -2166,7 +2228,7 @@ export function CreateProjectWizard({
           <Button
             aria-label={s.editor.back}
             className="!size-10 !min-h-10 rounded-full"
-            onClick={() => setOpen(false)}
+            onClick={requestClose}
             size="icon"
             variant="ghost"
           >
@@ -3226,6 +3288,48 @@ export function CreateProjectWizard({
                 {submitIntent === "draft"
                   ? s.editor.saving
                   : s.editor.saveDraft}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={setLeaveDialogOpen} open={leaveDialogOpen}>
+        <DialogContent className="m3-medium:max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{s.editor.leaveTitle}</DialogTitle>
+            <DialogDescription>{s.editor.leaveDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 m3-medium:justify-between">
+            <Button
+              className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
+              disabled={submitting}
+              onClick={discardAndClose}
+              variant="destructive"
+            >
+              {s.editor.leaveDiscard}
+            </Button>
+            <div className="flex flex-col-reverse gap-2 m3-medium:flex-row">
+              <Button
+                className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
+                disabled={submitting}
+                onClick={() => setLeaveDialogOpen(false)}
+                variant="outline"
+              >
+                {s.editor.continueEditing}
+              </Button>
+              {/* Proyek PUBLISHED disimpan sebagai pembaruan (tetap terbit),
+                  bukan "Pindahkan ke draf" yang akan menariknya dari publik. */}
+              <Button
+                className="min-h-12 rounded-[var(--radius-control)] px-4 type-label"
+                disabled={submitting}
+                onClick={() => void save(isPublished)}
+              >
+                {isPublished
+                  ? publishLabel
+                  : submitIntent === "draft"
+                    ? s.editor.saving
+                    : s.editor.saveDraft}
               </Button>
             </div>
           </DialogFooter>

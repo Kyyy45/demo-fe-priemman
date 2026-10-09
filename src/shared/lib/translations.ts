@@ -560,6 +560,10 @@ export const translations = {
             " Local media files must be selected again after a browser refresh.",
           discard: "Discard",
           continueEditing: "Continue editing",
+          leaveTitle: "Leave without saving?",
+          leaveDescription:
+            "This project has changes that haven’t been saved. Save them before leaving, or discard them.",
+          leaveDiscard: "Discard changes",
           projectVisual: "Project visual",
           addMargin: "Add horizontal margin",
           fullWidth: "Expand to full width",
@@ -1508,6 +1512,10 @@ export const translations = {
             " Berkas media lokal harus dipilih kembali setelah browser dimuat ulang.",
           discard: "Buang",
           continueEditing: "Lanjutkan mengedit",
+          leaveTitle: "Keluar tanpa menyimpan?",
+          leaveDescription:
+            "Proyek ini punya perubahan yang belum disimpan. Simpan dulu sebelum keluar, atau buang perubahannya.",
+          leaveDiscard: "Buang perubahan",
           projectVisual: "Visual proyek",
           addMargin: "Tambahkan margin horizontal",
           fullWidth: "Bentangkan selebar kanvas",
