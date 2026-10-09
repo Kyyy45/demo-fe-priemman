@@ -19,6 +19,7 @@ import {
   type AnalyticsDataPoint,
 } from "@/shared/ui/analytics-chart";
 import { AvatarStack, type AvatarStackItem } from "@/shared/ui/avatar-stack";
+import { DitherImageContent, DitherImageFrame } from "@/shared/ui/dither-image";
 import { FolderFloat } from "@/shared/ui/folder-float";
 import { MacScreen } from "@/shared/ui/mac-screen";
 import { RollingNumber } from "@/shared/ui/rolling-number";
@@ -29,9 +30,11 @@ import {
   useLocalToday,
 } from "@/shared/ui/tear-off-calendar";
 
-// Gambar sementara untuk layar mockup (dari /public) — ganti path di sini.
-const PHONE_SCREEN_SRC = "/banner_card.png";
-const MAC_SCREEN_SRC = "/thumb_card.png";
+// Layar mockup. iPhone: screenshot Beranda di 440×956 (DPR 3) dengan area
+// status bar 62px di atas, supaya navbar tidak tertutup jam & Dynamic Island.
+// Mac: WebP animasi hero Jelajah (640×480, 4:3 seperti layar Macintosh).
+const PHONE_SCREEN_SRC = "/mockups/home-mobile.webp";
+const MAC_SCREEN_SRC = "/mockups/explore-desktop.webp";
 
 // Pratinjau dashboard analitik (mockup fitur statistik di dashboard creator):
 // angka contoh yang selalu terisi, bukan klaim data komunitas.
@@ -372,7 +375,7 @@ export function AboutBento() {
               >
                 <Image
                   alt=""
-                  className="object-cover"
+                  className="object-cover object-top"
                   fill
                   sizes="320px"
                   src={PHONE_SCREEN_SRC}
@@ -464,13 +467,27 @@ export function AboutBento() {
               className="absolute left-1/2 top-1/2 h-[125%] -translate-x-1/2 -translate-y-1/2"
               imageClassName="h-full w-auto max-w-none"
             >
-              <Image
-                alt=""
-                className="object-cover"
-                fill
-                sizes="240px"
-                src={MAC_SCREEN_SRC}
-              />
+              {/* Dither (cult-ui) versi berwarna & lembut: tetap ada tekstur
+                  titik ala layar lama, tanpa dipaksa jadi hitam-putih. Isinya
+                  WebP animasi hero halaman Jelajah. */}
+              <DitherImageFrame
+                brightness={1.02}
+                className="h-full"
+                contrast={1.3}
+                grayscale={0}
+                opacity={0.35}
+                rounded={false}
+                size="sm"
+              >
+                <DitherImageContent
+                  alt=""
+                  className="object-top"
+                  fill
+                  sizes="240px"
+                  src={MAC_SCREEN_SRC}
+                  unoptimized
+                />
+              </DitherImageFrame>
             </MacScreen>
           </div>
         </BentoCard>

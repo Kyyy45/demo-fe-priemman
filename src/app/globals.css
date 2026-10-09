@@ -3,6 +3,7 @@
    --background/--primary/dst. dipertahankan sebagai alias supaya komponen
    shadcn/ui bawaan (Button, Sheet, dll.) tetap jalan tanpa perubahan. */
 @import "tailwindcss";
+@import "dither-plugin";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
