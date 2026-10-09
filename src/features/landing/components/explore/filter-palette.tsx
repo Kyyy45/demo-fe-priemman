@@ -43,6 +43,8 @@ type FilterPaletteProps = {
   onTag: (value: string | null) => void;
   onSort: (value: SortId) => void;
   onClear: () => void;
+  /** Kelas tambahan untuk wadah tombol + chip (mis. rata kanan di hero). */
+  className?: string;
 };
 
 export function FilterPalette({
@@ -52,6 +54,7 @@ export function FilterPalette({
   onTag,
   onSort,
   onClear,
+  className,
 }: FilterPaletteProps) {
   const t = useT();
   const p = t.explore.palette;
@@ -183,7 +186,7 @@ export function FilterPalette({
   let flatIndex = -1;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className={cn("flex min-w-0 flex-wrap items-center gap-2", className)}>
       <button
         type="button"
         onClick={() => {

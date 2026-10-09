@@ -1,9 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { gsap } from "@/shared/lib/gsap";
 import { useT } from "@/shared/providers/language-provider";
+import { ExploreHero } from "@/features/landing/components/explore/explore-hero";
 import { FilterPalette } from "@/features/landing/components/explore/filter-palette";
 import { type Project } from "@/shared/lib/types/explore";
 import { type SortId } from "@/shared/lib/types/explore";
@@ -31,6 +38,10 @@ type ExploreProps = {
   limit?: number;
   mode?: "dynamic" | "static";
   showSeeMore?: boolean;
+  /** Tampilkan hero halaman /explore di atas grid. Judul section disembunyikan
+   *  dan filter dipindah ke hero; keduanya ikut tersembunyi saat detail
+   *  project terbuka. */
+  withHero?: boolean;
 };
 
 type AuthenticationStatus = "checking" | "authenticated" | "guest";
@@ -39,6 +50,7 @@ export function Explore({
   limit,
   mode = "dynamic",
   showSeeMore = false,
+  withHero = false,
 }: ExploreProps) {
   const t = useT();
   const router = useRouter();
@@ -403,65 +415,83 @@ export function Explore({
   // menjadi satu-satunya kontrol scroll project yang dipilih.
   if (selectedProject) return projectDetail;
 
+  const filterPalette = (
+    <FilterPalette
+      className={withHero ? "m3-expanded:justify-end" : undefined}
+      tags={availableTags}
+      tag={tag}
+      sort={sort}
+      onTag={setTag}
+      onSort={setSort}
+      onClear={() => {
+        setTag(null);
+        setSort("forYou");
+      }}
+    />
+  );
+
   return (
-    <section
-      ref={sectionRef}
-      id="explore"
-      className="container-site min-w-0 py-[var(--landing-section-gap)]"
-    >
-      <div className="min-w-0 max-w-2xl">
-        <h2 data-explore-fade className="type-section-title font-heading">
-          {t.explore.title}
-        </h2>
-        <p data-explore-fade className="type-body mt-5">
-          {t.explore.subtitle}
-        </p>
-      </div>
-
-      <div data-explore-fade className="mt-10">
-        <FilterPalette
-          tags={availableTags}
-          tag={tag}
-          sort={sort}
-          onTag={setTag}
-          onSort={setSort}
-          onClear={() => {
-            setTag(null);
-            setSort("forYou");
-          }}
-        />
-      </div>
-
-      <div
-        data-explore-grid
-        className="mt-12 grid min-w-0 grid-cols-1 gap-[var(--grid-gap)] m3-medium:grid-cols-2 m3-expanded:grid-cols-3 m3-large:grid-cols-4"
+    <>
+      {withHero ? <ExploreHero filters={filterPalette} /> : null}
+      <section
+        ref={sectionRef}
+        id="explore"
+        className={`container-site min-w-0 ${
+          withHero
+            ? "scroll-mt-24 pb-[var(--landing-section-gap)] pt-6"
+            : "py-[var(--landing-section-gap)]"
+        }`}
       >
-        {isLoading
-          ? Array.from(
-              { length: limit ? Math.min(limit, 4) : 4 },
-              (_, index) => <ProjectCardSkeleton key={index} />,
-            )
-          : projects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                liked={liked.includes(project.id)}
-                interactive={mode === "dynamic"}
-                onLike={() => void toggleLike(project.id)}
-                onOpen={() => openProject(project)}
-                likeAria={t.explore.likeAria}
-              />
-            ))}
-      </div>
+        {withHero ? (
+          <h2 className="sr-only">{t.explore.title}</h2>
+        ) : (
+          <div className="min-w-0 max-w-2xl">
+            <h2 data-explore-fade className="type-section-title font-heading">
+              {t.explore.title}
+            </h2>
+            <p data-explore-fade className="type-body mt-5">
+              {t.explore.subtitle}
+            </p>
+          </div>
+        )}
 
-      {showSeeMore ? (
-        <div className="mt-14 flex justify-center">
-          <PrimaryActionLink href="/explore">
-            {t.explore.seeMore}
-          </PrimaryActionLink>
+        {withHero ? null : (
+          <div data-explore-fade className="mt-10">
+            {filterPalette}
+          </div>
+        )}
+
+        <div
+          data-explore-grid
+          className="mt-12 grid min-w-0 grid-cols-1 gap-[var(--grid-gap)] m3-medium:grid-cols-2 m3-expanded:grid-cols-3 m3-large:grid-cols-4"
+        >
+          {isLoading
+            ? Array.from(
+                { length: limit ? Math.min(limit, 4) : 4 },
+                (_, index) => <ProjectCardSkeleton key={index} />,
+              )
+            : projects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  project={project}
+                  liked={liked.includes(project.id)}
+                  interactive={mode === "dynamic"}
+                  onLike={() => void toggleLike(project.id)}
+                  onOpen={() => openProject(project)}
+                  likeAria={t.explore.likeAria}
+                />
+              ))}
         </div>
-      ) : null}
-    </section>
+
+        {showSeeMore ? (
+          <div className="mt-14 flex justify-center">
+            <PrimaryActionLink href="/explore">
+              {t.explore.seeMore}
+            </PrimaryActionLink>
+          </div>
+        ) : null}
+      </section>
+    </>
   );
 }
 

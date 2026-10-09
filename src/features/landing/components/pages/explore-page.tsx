@@ -6,9 +6,12 @@ import { PublicPageShell } from "@/features/landing/components/shared/public-pag
 /** Halaman Explore publik beserta shell dan batas Suspense URL query. */
 export default function ExplorePageContent() {
   return (
-    <PublicPageShell mainClassName="pt-20 m3-expanded:pt-24 m3-large:pt-28">
+    <PublicPageShell
+      mainClassName="pt-20 m3-expanded:pt-24 m3-large:pt-28"
+      showFooter
+    >
       <Suspense fallback={null}>
-        <Explore />
+        <Explore withHero />
       </Suspense>
     </PublicPageShell>
   );

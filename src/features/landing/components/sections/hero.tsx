@@ -5,6 +5,7 @@ import { gsap } from "@/shared/lib/gsap";
 import AccordionGallery from "@/shared/ui/AccordionGallery";
 import LogoLoop, { type LogoItem } from "@/shared/ui/LogoLoop";
 import { useT } from "@/shared/providers/language-provider";
+import { getAvatarFallbackUrl } from "@/shared/lib/avatar";
 import { AvatarStack } from "@/shared/ui/avatar-stack";
 import { PrimaryActionLink } from "@/features/landing/components/shared/primary-action-link";
 
@@ -14,13 +15,42 @@ const HERO_BG = "var(--surface)";
 // Nama anggota yang tampil pada avatar stack
 const teamMembers = ["Maya", "Jonas", "Aida", "Reza", "Kim"];
 
-// Placeholder kosong untuk logo teknologi; aset lokal akan ditambahkan kemudian.
-const TECHNOLOGY_NAMES = ["React", "Next.js", "Tailwind CSS", "Laravel", "PHP", "C++", "MongoDB", "MariaDB", "PostgreSQL", "Svelte", "JavaScript", "TypeScript", "Adobe Illustrator", "Photoshop", "Python", "Adobe Premiere Pro"];
-const loopLogos: LogoItem[] = TECHNOLOGY_NAMES.map((name) => ({
-  ariaLabel: `${name} placeholder`,
-  node: <span aria-hidden="true" className="inline-block h-[var(--logoloop-logoHeight)] w-10 rounded-[var(--radius-control)] bg-surface-container-high" />,
-  title: name,
-}));
+// Logo alat yang dipakai kreator (dari svgl.app, disimpan di /public/tool-logos).
+// Urutan diselang-seling antar disiplin supaya logo Adobe tidak berkumpul.
+// `dark` = varian untuk tema gelap, bagi logo yang hitam di tema terang.
+const TOOL_LOGOS: { name: string; src: string; dark?: string }[] = [
+  { name: "Figma", src: "figma.svg" },
+  { name: "Photoshop", src: "photoshop.svg" },
+  { name: "Blender", src: "blender.svg" },
+  { name: "Illustrator", src: "illustrator.svg" },
+  { name: "Canva", src: "canva.svg" },
+  { name: "After Effects", src: "after-effects.svg" },
+  { name: "Framer", src: "framer.svg", dark: "framer_dark.svg" },
+  { name: "Premiere Pro", src: "premiere.svg" },
+  { name: "Affinity Designer", src: "affinity_designer.svg" },
+  { name: "Lightroom", src: "lightroom.svg" },
+  { name: "Penpot", src: "penpot.svg", dark: "penpot_dark.svg" },
+  { name: "InDesign", src: "indesign.svg" },
+  { name: "Sketch", src: "sketch_light.svg", dark: "sketch.svg" },
+  { name: "Unreal Engine", src: "unreal_engine.svg", dark: "unreal_engine_dark.svg" },
+];
+const TOOL_LOGO_CLASS = "h-[var(--logoloop-logoHeight)] w-auto object-contain";
+const loopLogos: LogoItem[] = TOOL_LOGOS.map(({ name, src, dark }) =>
+  dark
+    ? {
+        ariaLabel: name,
+        title: name,
+        node: (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG statis, sama seperti LogoLoop */}
+            <img alt="" className={`${TOOL_LOGO_CLASS} block dark:hidden`} draggable={false} src={`/tool-logos/${src}`} />
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG statis, sama seperti LogoLoop */}
+            <img alt="" className={`${TOOL_LOGO_CLASS} hidden dark:block`} draggable={false} src={`/tool-logos/${dark}`} />
+          </>
+        ),
+      }
+    : { alt: name, src: `/tool-logos/${src}`, title: name },
+);
 
 // Gambar default untuk gallery Hero
 const GALLERY_IMAGES = Array<string>(5).fill("");
@@ -72,7 +102,7 @@ export function Hero() {
           className="flex max-w-[calc(100vw-2rem)] flex-nowrap items-center justify-center rounded-full border border-border-subtle bg-surface-raised p-1 pr-2 shadow-[var(--shadow-control)] min-[360px]:pr-3 m3-medium:max-w-full m3-medium:pr-4"
         >
           <AvatarStack
-            avatars={teamMembers.map((name) => ({ name }))}
+            avatars={teamMembers.map((name) => ({ name, src: getAvatarFallbackUrl(name) }))}
             max={3}
             className="[&_[data-slot=avatar]]:size-6 [&_[data-slot=avatar-group-count]]:size-6 [&_[data-slot=avatar-group-count]]:type-metadata min-[360px]:[&_[data-slot=avatar]]:size-7 min-[360px]:[&_[data-slot=avatar-group-count]]:size-7 m3-medium:[&_[data-slot=avatar]]:size-8 m3-medium:[&_[data-slot=avatar-group-count]]:size-8"
           />
