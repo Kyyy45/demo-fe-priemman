@@ -844,6 +844,13 @@ html:has([data-slot="sidebar-wrapper"]) {
   scrollbar-gutter: auto;
 }
 
+/* Safari iOS (toolbar mengambang) dan overscroll mengisi area di luar ujung
+   dokumen dengan warna latar root. Di halaman public, samakan dengan warna
+   footer (surface) supaya tidak muncul strip gelap di bawah footer. */
+html:has(.landing-shell) {
+  background-color: var(--surface);
+}
+
 /* Panel Transition */
 /* Transisi ini diadaptasi dari transitions.dev. */
 :root {
