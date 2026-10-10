@@ -336,13 +336,13 @@ function FilterChip({
   onRemove: () => void;
 }) {
   return (
-    <span className="flex min-h-12 max-w-full min-w-0 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-raised py-1.5 pr-1.5 pl-3 type-label text-copy shadow-[var(--shadow-control)]">
+    <span className="flex h-12 max-w-full min-w-0 items-center gap-1 rounded-full border border-border-subtle bg-surface-raised pr-1.5 pl-4 type-label text-copy shadow-[var(--shadow-control)]">
       <span className="truncate">{label}</span>
       <button
         type="button"
         onClick={onRemove}
         aria-label={removeAria}
-        className="flex size-12 cursor-pointer items-center justify-center rounded-full text-copy-secondary transition-colors hover:bg-surface-muted hover:text-heading active:translate-y-px focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
+        className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-copy-secondary transition-colors hover:bg-surface-muted hover:text-heading active:translate-y-px focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand"
       >
         <X className="size-3" weight="bold" />
       </button>
