@@ -62,7 +62,7 @@ export default function ContactPageContent() {
                   ? { rel: "noopener noreferrer", target: "_blank" }
                   : {})}
               >
-                <span className="flex size-12 items-center justify-center rounded-[var(--radius-control)] bg-surface-muted text-heading">
+                <span className="flex size-12 items-center justify-center rounded-[var(--radius-control)] bg-brand text-on-brand">
                   <channel.icon className="size-6" />
                 </span>
                 <h2 className="mt-5 type-card-title font-semibold text-heading">
