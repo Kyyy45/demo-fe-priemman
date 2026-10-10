@@ -1,23 +1,54 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
+import Image from "next/image";
 import { gsap } from "@/shared/lib/gsap";
 import { useT } from "@/shared/providers/language-provider";
 
 /** Source: Skiper UI 79, free license — https://skiper-ui.com/v1/skiper79 */
 
-// Susunan anggota pada setiap baris showcase
+// Kreator Priemman. Tiap kreator punya dua foto (crop 1:1, fokus ke wajah,
+// di /public/team); foto yang belum ada tampil sebagai kotak placeholder.
+const CREATORS: { name: string; role: string; photos: [string?, string?] }[] = [
+  {
+    name: "Rizky Akbar",
+    role: "Frontend Developer",
+    photos: ["/team/rizky-akbar-1.webp", "/team/rizky-akbar-2.webp"],
+  },
+  {
+    name: "Yoga Dwi Noviyanto",
+    role: "Sales Manager",
+    photos: ["/team/yoga-dwi-noviyanto-1.webp"],
+  },
+  { name: "Ari Susanto", role: "Backend Developer", photos: [] },
+  {
+    name: "Aditya Putra Wardhana",
+    role: "Content Strategist",
+    photos: ["/team/aditya-putra-wardhana-1.webp", "/team/aditya-putra-wardhana-2.webp"],
+  },
+  { name: "Kautsar Qaris Septyawan", role: "Backend Developer", photos: [] },
+  {
+    name: "Rendy Amy Saputra",
+    role: "Marketing Manager",
+    photos: ["/team/rendy-amy-saputra-1.webp", "/team/rendy-amy-saputra-2.webp"],
+  },
+];
+
+// Urutan kotak: putaran pertama foto ke-1 tiap kreator, putaran kedua foto
+// ke-2, supaya foto orang yang sama tidak bersebelahan (12 kotak, genap).
+const CELLS = [0, 1].flatMap((photoIndex) =>
+  CREATORS.map((creator) => ({ ...creator, src: creator.photos[photoIndex] })),
+);
+
+// Kolom (0–3) yang terisi di setiap baris showcase; totalnya = CELLS.length.
 const ROWS: number[][] = [
   [0, 2],
+  [1, 3],
+  [0],
+  [2, 3],
   [1],
   [0, 3],
   [1, 2],
-  [0, 3],
-  [2],
-  [1, 3],
-  [0, 2],
-  [1],
-  [0, 3],
 ];
 
 export function TeamShowcase() {
@@ -26,8 +57,8 @@ export function TeamShowcase() {
   // Menyimpan section yang menjadi target animasi GSAP
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Menentukan anggota berikutnya saat card dibuat
-  let memberCursor = 0;
+  // Menentukan kotak berikutnya saat card dibuat
+  let cellCursor = 0;
 
   // Menjalankan animasi card saat section masuk ke viewport
   useLayoutEffect(() => {
@@ -88,10 +119,10 @@ export function TeamShowcase() {
               if (!columns.includes(columnIndex)) {
                 return <div key={columnIndex} className="aspect-square flex-1" />;
               }
-              const member = t.team.members[memberCursor];
+              const cell = CELLS[cellCursor];
               const origin =
-                memberCursor % 2 === 0 ? "left bottom" : "right bottom";
-              memberCursor += 1;
+                cellCursor % 2 === 0 ? "left bottom" : "right bottom";
+              cellCursor += 1;
               return (
                 <div key={columnIndex} className="aspect-square flex-1">
                   <div
@@ -99,10 +130,24 @@ export function TeamShowcase() {
                     className="relative h-full w-full"
                     style={{ transformOrigin: origin }}
                   >
-                    <div aria-label={`${member.name} placeholder`} className="h-full w-full bg-surface-container-high" role="img" />
-                    <div className="absolute inset-x-0 -bottom-2 flex translate-y-full justify-between px-0.5 type-metadata tracking-wide uppercase opacity-40">
-                      <span>{member.name}</span>
-                      <span className="text-right">({member.role})</span>
+                    {cell.src ? (
+                      // Hitam-putih lewat CSS (grayscale + sedikit kontras),
+                      // seperti foto editorial di referensi Skiper UI.
+                      <Image
+                        alt={cell.name}
+                        className="object-cover contrast-110 grayscale"
+                        fill
+                        sizes="(min-width: 75rem) 300px, 25vw"
+                        src={cell.src}
+                      />
+                    ) : (
+                      <div aria-label={cell.name} className="h-full w-full bg-surface-container-high" role="img" />
+                    )}
+                    {/* Kotak di ponsel hanya ~86px: peran turun ke bawah nama;
+                        mulai tablet nama di kiri, peran di kanan. */}
+                    <div className="absolute inset-x-0 -bottom-2 flex translate-y-full flex-col gap-0.5 px-0.5 type-metadata tracking-wide uppercase opacity-40 max-m3-medium:text-[0.625rem] max-m3-medium:leading-tight m3-medium:flex-row m3-medium:justify-between m3-medium:gap-2">
+                      <span>{cell.name}</span>
+                      <span className="m3-medium:text-right">({cell.role})</span>
                     </div>
                   </div>
                 </div>
